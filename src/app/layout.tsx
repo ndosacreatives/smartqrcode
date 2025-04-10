@@ -1,23 +1,14 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Inter } from "next/font/google";
 import "./globals.css";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
+const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Smart QR Code & Barcode Generator",
-  description: "A web app to generate QR codes and barcodes easily",
-  keywords: ["QR code", "barcode", "generator", "scanner"],
+  title: "Smart QR & Barcode Generator",
+  description: "Generate custom QR codes and barcodes easily.",
 };
 
 export default function RootLayout({
@@ -27,11 +18,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen flex flex-col`}
-      >
+      <body className={`${inter.className} bg-zinc-100 text-gray-800 flex flex-col min-h-screen`}>
         <Navbar />
-        <main className="flex-grow bg-gray-50">
+        <main className="flex-grow container mx-auto px-4 py-8">
           {children}
         </main>
         <Footer />

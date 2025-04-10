@@ -138,213 +138,214 @@ export default function BarcodeGenerator({ onDownload }: BarcodeGeneratorProps) 
   };
 
   return (
-    <div className="w-full mx-auto bg-white rounded-lg shadow-md">
-      <div className="p-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          {/* Left Column - Form */}
-          <div className="space-y-6">
-            <div className="mb-4">
-              <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="barcode-text">
-                Barcode Value <span className="text-red-500">*</span>
-              </label>
-              <input
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
-                id="barcode-text"
-                type="text"
-                value={text}
-                onChange={(e) => setText(e.target.value)}
-                placeholder="Enter barcode value"
-              />
-              {errorMessage && (
-                <p className="mt-1 text-sm text-red-600">{errorMessage}</p>
-              )}
-            </div>
-            
-            <div className="mb-4">
-              <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="barcode-type">
-                Barcode Format
-              </label>
-              <select
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
-                id="barcode-type"
-                value={barcodeType}
-                onChange={(e) => setBarcodeType(e.target.value)}
-              >
-                {barcodeFormats.map((format) => (
-                  <option key={format.value} value={format.value}>
-                    {format.label}
-                  </option>
-                ))}
-              </select>
-              <p className="mt-1 text-sm text-gray-500">
-                {barcodeType === "CODE128" && "Accepts any ASCII character"}
-                {barcodeType === "EAN13" && "Must be exactly 13 digits"}
-                {barcodeType === "UPC" && "Must be exactly 12 digits"}
-                {barcodeType === "EAN8" && "Must be exactly 8 digits"}
-                {barcodeType === "CODE39" && "Accepts 0-9, A-Z, -, ., space, $, /, +, %"}
-                {barcodeType === "ITF14" && "Must be exactly 14 digits"}
-                {barcodeType === "MSI" && "Accepts only digits"}
-                {barcodeType === "pharmacode" && "Accepts only digits"}
-              </p>
-            </div>
-            
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-              <div>
-                <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="barcode-width">
-                  Bar Width: {width}
-                </label>
-                <input
-                  className="w-full"
-                  id="barcode-width"
-                  type="range"
-                  min="1"
-                  max="5"
-                  step="0.5"
-                  value={width}
-                  onChange={(e) => setWidth(Number(e.target.value))}
-                />
-              </div>
-              <div>
-                <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="barcode-height">
-                  Height: {height}px
-                </label>
-                <input
-                  className="w-full"
-                  id="barcode-height"
-                  type="range"
-                  min="50"
-                  max="200"
-                  step="10"
-                  value={height}
-                  onChange={(e) => setHeight(Number(e.target.value))}
-                />
-              </div>
-            </div>
-            
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-              <div>
-                <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="margin-top">
-                  Top Margin: {marginTop}px
-                </label>
-                <input
-                  className="w-full"
-                  id="margin-top"
-                  type="range"
-                  min="0"
-                  max="50"
-                  step="5"
-                  value={marginTop}
-                  onChange={(e) => setMarginTop(Number(e.target.value))}
-                />
-              </div>
-              <div>
-                <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="margin-bottom">
-                  Bottom Margin: {marginBottom}px
-                </label>
-                <input
-                  className="w-full"
-                  id="margin-bottom"
-                  type="range"
-                  min="0"
-                  max="50"
-                  step="5"
-                  value={marginBottom}
-                  onChange={(e) => setMarginBottom(Number(e.target.value))}
-                />
-              </div>
-            </div>
-            
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-              <div>
-                <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="fg-color">
-                  Foreground Color
-                </label>
-                <input
-                  className="w-full"
-                  id="fg-color"
-                  type="color"
-                  value={foregroundColor}
-                  onChange={(e) => setForegroundColor(e.target.value)}
-                />
-              </div>
-              <div>
-                <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="bg-color">
-                  Background Color
-                </label>
-                <input
-                  className="w-full"
-                  id="bg-color"
-                  type="color"
-                  value={backgroundColor}
-                  onChange={(e) => setBackgroundColor(e.target.value)}
-                />
-              </div>
-            </div>
-            
-            <div className="mb-4">
-              <label className="flex items-center">
-                <input
-                  type="checkbox"
-                  checked={displayValue}
-                  onChange={(e) => setDisplayValue(e.target.checked)}
-                  className="mr-2"
-                />
-                <span className="text-gray-700 text-sm font-bold">Show Text Below Barcode</span>
-              </label>
-            </div>
-            
-            <div className="mb-4">
-              <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="image-format">
-                Download Format
-              </label>
-              <div className="flex flex-wrap gap-3">
-                {imageFormats.map((format) => (
-                  <label key={format.value} className="inline-flex items-center">
-                    <input
-                      type="radio"
-                      className="form-radio"
-                      name="image-format"
-                      value={format.value}
-                      checked={imageFormat === format.value}
-                      onChange={() => setImageFormat(format.value as ImageFormat)}
-                    />
-                    <span className="ml-2">{format.label}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-            
-            <button
-              className="w-full bg-primary hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline flex items-center justify-center"
-              onClick={downloadBarcode}
-              disabled={!text || !!errorMessage}
-            >
-              <span>Download Barcode</span>
-              <span className="ml-2">(.{imageFormat.toUpperCase()})</span>
-            </button>
+    <div className="w-full mx-auto bg-white rounded-lg shadow-lg p-6 border border-zinc-200">
+      <div className="mb-6 text-center">
+        <h2 className="text-2xl font-semibold text-gray-800 mb-2">Barcode Generator</h2>
+        <p className="text-gray-600">Create various standard barcodes.</p>
+      </div>
+      
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+        {/* Left Column - Form */}
+        <div className="md:col-span-2 space-y-6">
+          <div className="bg-zinc-50 p-4 rounded-lg border border-zinc-200">
+            <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="barcode-text">
+              Barcode Value <span className="text-red-500">*</span>
+            </label>
+            <input
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+              id="barcode-text"
+              type="text"
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              placeholder="Enter barcode value"
+            />
+            {errorMessage && (
+              <p className="mt-1 text-sm text-red-600">{errorMessage}</p>
+            )}
           </div>
           
-          {/* Right Column - Preview */}
-          <div className="flex flex-col items-center justify-center">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">Barcode Preview</h3>
-            <div className="bg-gray-50 p-6 rounded-lg border border-gray-200 flex items-center justify-center w-full h-full">
-              {text && !errorMessage ? (
-                <div className="inline-block p-4 bg-white rounded-md shadow-sm overflow-hidden max-w-full">
-                  <canvas ref={canvasRef} />
-                </div>
-              ) : (
-                <div className="text-gray-400 text-center">
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-12 h-12 mx-auto mb-2">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0 1 3.75 9.375v-4.5ZM3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 0 1-1.125-1.125v-4.5Z" />
-                  </svg>
-                  <p>Fill the form to generate a barcode</p>
-                </div>
-              )}
-            </div>
-            <p className="text-sm text-gray-500 mt-4">
-              {text && !errorMessage && `Type: ${barcodeFormats.find(f => f.value === barcodeType)?.label}`}
+          <div className="bg-zinc-50 p-4 rounded-lg border border-zinc-200">
+            <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="barcode-type">
+              Barcode Format
+            </label>
+            <select
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+              id="barcode-type"
+              value={barcodeType}
+              onChange={(e) => setBarcodeType(e.target.value)}
+            >
+              {barcodeFormats.map((format) => (
+                <option key={format.value} value={format.value}>
+                  {format.label}
+                </option>
+              ))}
+            </select>
+            <p className="mt-1 text-sm text-gray-500">
+              {barcodeType === "CODE128" && "Accepts any ASCII character"}
+              {barcodeType === "EAN13" && "Must be exactly 13 digits"}
+              {barcodeType === "UPC" && "Must be exactly 12 digits"}
+              {barcodeType === "EAN8" && "Must be exactly 8 digits"}
+              {barcodeType === "CODE39" && "Accepts 0-9, A-Z, -, ., space, $, /, +, %"}
+              {barcodeType === "ITF14" && "Must be exactly 14 digits"}
+              {barcodeType === "MSI" && "Accepts only digits"}
+              {barcodeType === "pharmacode" && "Accepts only digits"}
             </p>
           </div>
+          
+          <div className="bg-zinc-50 p-4 rounded-lg border border-zinc-200 grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="barcode-width">
+                Bar Width: {width}
+              </label>
+              <input
+                className="w-full"
+                id="barcode-width"
+                type="range"
+                min="1"
+                max="5"
+                step="0.5"
+                value={width}
+                onChange={(e) => setWidth(Number(e.target.value))}
+              />
+            </div>
+            <div>
+              <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="barcode-height">
+                Height: {height}px
+              </label>
+              <input
+                className="w-full"
+                id="barcode-height"
+                type="range"
+                min="50"
+                max="200"
+                step="10"
+                value={height}
+                onChange={(e) => setHeight(Number(e.target.value))}
+              />
+            </div>
+          </div>
+          
+          <div className="bg-zinc-50 p-4 rounded-lg border border-zinc-200 grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="margin-top">
+                Top Margin: {marginTop}px
+              </label>
+              <input
+                className="w-full"
+                id="margin-top"
+                type="range"
+                min="0"
+                max="50"
+                step="5"
+                value={marginTop}
+                onChange={(e) => setMarginTop(Number(e.target.value))}
+              />
+            </div>
+            <div>
+              <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="margin-bottom">
+                Bottom Margin: {marginBottom}px
+              </label>
+              <input
+                className="w-full"
+                id="margin-bottom"
+                type="range"
+                min="0"
+                max="50"
+                step="5"
+                value={marginBottom}
+                onChange={(e) => setMarginBottom(Number(e.target.value))}
+              />
+            </div>
+          </div>
+          
+          <div className="bg-zinc-50 p-4 rounded-lg border border-zinc-200 grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="fg-color">
+                Foreground Color
+              </label>
+              <input
+                className="w-full"
+                id="fg-color"
+                type="color"
+                value={foregroundColor}
+                onChange={(e) => setForegroundColor(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="bg-color">
+                Background Color
+              </label>
+              <input
+                className="w-full"
+                id="bg-color"
+                type="color"
+                value={backgroundColor}
+                onChange={(e) => setBackgroundColor(e.target.value)}
+              />
+            </div>
+          </div>
+          
+          <div className="bg-zinc-50 p-4 rounded-lg border border-zinc-200 mb-4">
+            <label className="flex items-center">
+              <input
+                type="checkbox"
+                checked={displayValue}
+                onChange={(e) => setDisplayValue(e.target.checked)}
+                className="mr-2"
+              />
+              <span className="text-gray-700 text-sm font-bold">Show Text Below Barcode</span>
+            </label>
+          </div>
+          
+          <div className="bg-zinc-50 p-4 rounded-lg border border-zinc-200 mb-4">
+            <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="image-format">
+              Download Format
+            </label>
+            <div className="flex flex-wrap gap-3">
+              {imageFormats.map((format) => (
+                <label key={format.value} className="inline-flex items-center">
+                  <input
+                    type="radio"
+                    className="form-radio"
+                    name="image-format"
+                    value={format.value}
+                    checked={imageFormat === format.value}
+                    onChange={() => setImageFormat(format.value as ImageFormat)}
+                  />
+                  <span className="ml-2">{format.label}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+          
+          <button
+            className="w-full bg-primary hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline flex items-center justify-center"
+            onClick={downloadBarcode}
+            disabled={!text || !!errorMessage}
+          >
+            <span>Download Barcode</span>
+            <span className="ml-2">(.{imageFormat.toUpperCase()})</span>
+          </button>
+        </div>
+        
+        {/* Right Column - Preview */}
+        <div className="space-y-4">
+          <div className="bg-zinc-50 p-4 rounded-lg border border-zinc-200 text-center">
+            <h3 className="text-lg font-medium text-gray-800 mb-3">Preview</h3>
+            {text.trim() === "" ? (
+              <div className="flex items-center justify-center h-32 bg-gray-200 rounded-md text-gray-500">
+                Enter value to preview
+              </div>
+            ) : (
+              <canvas ref={canvasRef} className="mx-auto border border-gray-300"></canvas>
+            )}
+            {errorMessage && (
+              <p className="mt-2 text-sm text-red-600">{errorMessage}</p>
+            )}
+          </div>
+          <p className="text-sm text-gray-500 mt-4">
+            {text && !errorMessage && `Type: ${barcodeFormats.find(f => f.value === barcodeType)?.label}`}
+          </p>
         </div>
       </div>
     </div>

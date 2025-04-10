@@ -3,6 +3,13 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { Bars3Icon, XMarkIcon } from '@heroicons/react/24/outline';
+
+const navigation = [
+  { name: 'Home', href: '/' },
+  { name: 'Login', href: '/login' },
+  { name: 'Register', href: '/register' },
+];
 
 export default function Navbar() {
   const pathname = usePathname();
@@ -13,178 +20,75 @@ export default function Navbar() {
   };
   
   return (
-    <nav className="bg-primary shadow-md">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between h-16">
-          {/* Logo */}
-          <div className="flex-shrink-0 flex items-center">
-            <Link href="/" className="flex items-center">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-8 h-8 text-white mr-2">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0 1 3.75 9.375v-4.5ZM3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 0 1-1.125-1.125v-4.5Z" />
-              </svg>
-              <span className="text-white text-xl font-bold">Smart QR & Barcode</span>
-            </Link>
-          </div>
-          
-          {/* Desktop Navigation - Center */}
-          <div className="hidden md:flex items-center justify-center flex-1 mx-8">
-            <div className="flex space-x-4">
-              <Link
-                href="/"
-                className={`px-3 py-2 rounded-md text-sm font-medium ${
-                  isActive("/")
-                    ? "bg-blue-700 text-white"
-                    : "text-white hover:bg-blue-600"
-                }`}
-              >
-                Home
-              </Link>
-              
-              <Link
-                href="/qrcode"
-                className={`px-3 py-2 rounded-md text-sm font-medium ${
-                  isActive("/qrcode")
-                    ? "bg-blue-700 text-white"
-                    : "text-white hover:bg-blue-600"
-                }`}
-              >
-                QR Code
-              </Link>
-              
-              <Link
-                href="/barcode"
-                className={`px-3 py-2 rounded-md text-sm font-medium ${
-                  isActive("/barcode")
-                    ? "bg-blue-700 text-white"
-                    : "text-white hover:bg-blue-600"
-                }`}
-              >
-                Barcode
-              </Link>
-
-              <Link
-                href="/about"
-                className={`px-3 py-2 rounded-md text-sm font-medium ${
-                  isActive("/about")
-                    ? "bg-blue-700 text-white"
-                    : "text-white hover:bg-blue-600"
-                }`}
-              >
-                About
-              </Link>
-            </div>
-          </div>
-          
-          {/* Login/Register Buttons */}
-          <div className="hidden md:flex items-center">
-            <Link
-              href="/login"
-              className="ml-4 px-3 py-2 border border-transparent text-sm font-medium rounded-md text-white hover:bg-blue-600 focus:outline-none"
-            >
-              Login
-            </Link>
-            <Link
-              href="/register"
-              className="ml-4 px-3 py-2 border border-white text-sm font-medium rounded-md text-white hover:bg-blue-600 focus:outline-none"
-            >
-              Register
-            </Link>
-          </div>
-          
-          {/* Mobile menu button */}
-          <div className="md:hidden flex items-center">
-            <button
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="inline-flex items-center justify-center p-2 rounded-md text-white hover:bg-blue-600 focus:outline-none"
-            >
-              <span className="sr-only">Open main menu</span>
-              {mobileMenuOpen ? (
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              ) : (
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
-                </svg>
-              )}
-            </button>
-          </div>
+    <header className="bg-white shadow-sm sticky top-0 z-50">
+      <nav className="container mx-auto flex items-center justify-between p-4 lg:px-8" aria-label="Global">
+        <div className="flex lg:flex-1">
+          <Link href="/" className="-m-1.5 p-1.5">
+            <span className="sr-only">Smart QR & Barcode</span>
+            <svg className="h-8 w-auto text-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 013.75 9.375v-4.5zM3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 01-1.125-1.125v-4.5zM13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0113.5 9.375v-4.5z" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 01-1.125-1.125v-4.5z" />
+            </svg>
+          </Link>
         </div>
-      </div>
-      
-      {/* Mobile menu */}
+        <div className="flex lg:hidden">
+          <button
+            type="button"
+            className="-m-2.5 inline-flex items-center justify-center rounded-md p-2.5 text-gray-700"
+            onClick={() => setMobileMenuOpen(true)}
+          >
+            <span className="sr-only">Open main menu</span>
+            <Bars3Icon className="h-6 w-6" aria-hidden="true" />
+          </button>
+        </div>
+        <div className="hidden lg:flex lg:gap-x-12">
+          {navigation.map((item) => (
+            <Link key={item.name} href={item.href} className="text-sm font-semibold leading-6 text-gray-700 hover:text-primary transition-colors">
+              {item.name}
+            </Link>
+          ))}
+        </div>
+      </nav>
+      {/* Mobile menu, show/hide based on menu state. */}
       {mobileMenuOpen && (
-        <div className="md:hidden">
-          <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
-            <Link
-              href="/"
-              className={`block px-3 py-2 rounded-md text-base font-medium ${
-                isActive("/")
-                  ? "bg-blue-700 text-white"
-                  : "text-white hover:bg-blue-600"
-              }`}
-              onClick={() => setMobileMenuOpen(false)}
-            >
-              Home
-            </Link>
-            
-            <Link
-              href="/qrcode"
-              className={`block px-3 py-2 rounded-md text-base font-medium ${
-                isActive("/qrcode")
-                  ? "bg-blue-700 text-white"
-                  : "text-white hover:bg-blue-600"
-              }`}
-              onClick={() => setMobileMenuOpen(false)}
-            >
-              QR Code
-            </Link>
-            
-            <Link
-              href="/barcode"
-              className={`block px-3 py-2 rounded-md text-base font-medium ${
-                isActive("/barcode")
-                  ? "bg-blue-700 text-white"
-                  : "text-white hover:bg-blue-600"
-              }`}
-              onClick={() => setMobileMenuOpen(false)}
-            >
-              Barcode
-            </Link>
-
-            <Link
-              href="/about"
-              className={`block px-3 py-2 rounded-md text-base font-medium ${
-                isActive("/about")
-                  ? "bg-blue-700 text-white"
-                  : "text-white hover:bg-blue-600"
-              }`}
-              onClick={() => setMobileMenuOpen(false)}
-            >
-              About
-            </Link>
-            
-            <div className="pt-4 pb-3 border-t border-blue-700">
-              <div className="flex items-center px-5">
-                <Link
-                  href="/login"
-                  className="block px-3 py-2 rounded-md text-base font-medium text-white hover:bg-blue-600"
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  Login
-                </Link>
-                <Link
-                  href="/register"
-                  className="ml-4 block px-3 py-2 rounded-md text-base font-medium text-white hover:bg-blue-600"
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  Register
-                </Link>
+        <div className="lg:hidden" role="dialog" aria-modal="true">
+          <div className="fixed inset-0 z-50" />
+          <div className="fixed inset-y-0 right-0 z-50 w-full overflow-y-auto bg-white px-6 py-6 sm:max-w-sm sm:ring-1 sm:ring-gray-900/10">
+            <div className="flex items-center justify-between">
+              <Link href="/" className="-m-1.5 p-1.5">
+                <span className="sr-only">Smart QR & Barcode</span>
+                <svg className="h-8 w-auto text-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                   <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 013.75 9.375v-4.5zM3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 01-1.125-1.125v-4.5zM13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0113.5 9.375v-4.5z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 01-1.125-1.125v-4.5z" />
+                </svg>
+              </Link>
+              <button
+                type="button"
+                className="-m-2.5 rounded-md p-2.5 text-gray-700"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                <span className="sr-only">Close menu</span>
+                <XMarkIcon className="h-6 w-6" aria-hidden="true" />
+              </button>
+            </div>
+            <div className="mt-6 flow-root">
+              <div className="-my-6 divide-y divide-gray-500/10">
+                <div className="space-y-2 py-6">
+                  {navigation.map((item) => (
+                    <Link
+                      key={item.name}
+                      href={item.href}
+                      className="-mx-3 block rounded-lg px-3 py-2 text-base font-semibold leading-7 text-gray-900 hover:bg-gray-50"
+                    >
+                      {item.name}
+                    </Link>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
         </div>
       )}
-    </nav>
+    </header>
   );
 } 

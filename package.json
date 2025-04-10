@@ -10,6 +10,7 @@
     "netlify-build": "CI=false next build"
   },
   "dependencies": {
+    "@heroicons/react": "^2.2.0",
     "@tailwindcss/forms": "^0.5.10",
     "file-saver": "^2.0.5",
     "jsbarcode": "^3.11.6",

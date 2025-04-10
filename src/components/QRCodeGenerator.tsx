@@ -241,177 +241,180 @@ export default function QRCodeGenerator({ onDownload }: QRCodeGeneratorProps) {
   };
 
   return (
-    <div className="w-full mx-auto bg-white rounded-lg shadow-md">
-      <div className="p-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          {/* Left Column - Form */}
-          <div className="space-y-6">
-            <div className="mb-6">
-              <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="qrType">
-                QR Code Type
+    <div className="w-full mx-auto bg-white rounded-lg shadow-lg p-6 border border-zinc-200">
+      <div className="mb-6 text-center">
+        <h2 className="text-2xl font-semibold text-gray-800 mb-2">QR Code Generator</h2>
+        <p className="text-gray-600">Create custom QR codes for various types of data.</p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+        {/* Left Column - Form */}
+        <div className="md:col-span-2 space-y-6">
+          <div className="bg-zinc-50 p-4 rounded-lg border border-zinc-200">
+            <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="qr-type">
+              QR Code Type
+            </label>
+            <select
+              id="qr-type"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+              value={qrType}
+              onChange={(e) => setQRType(e.target.value as QRCodeType)}
+            >
+              {qrTypes.map((type) => (
+                <option key={type.value} value={type.value}>
+                  {type.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Dynamic form fields based on QR type */}
+          {formFields[qrType].map((field) => (
+            <div key={field.id} className="mb-4">
+              <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor={field.id}>
+                {field.label} {field.required && <span className="text-red-500">*</span>}
               </label>
-              <select
-                id="qrType"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
-                value={qrType}
-                onChange={(e) => setQRType(e.target.value as QRCodeType)}
-              >
-                {qrTypes.map((type) => (
-                  <option key={type.value} value={type.value}>
-                    {type.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Dynamic form fields based on QR type */}
-            {formFields[qrType].map((field) => (
-              <div key={field.id} className="mb-4">
-                <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor={field.id}>
-                  {field.label} {field.required && <span className="text-red-500">*</span>}
-                </label>
-                
-                {field.type === 'textarea' ? (
-                  <textarea
-                    id={field.id}
-                    name={field.id}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
-                    placeholder={field.placeholder}
-                    value={formValues[field.id]}
-                    onChange={handleInputChange}
-                    rows={4}
-                    required={field.required}
-                  />
-                ) : field.type === 'select' ? (
-                  <select
-                    id={field.id}
-                    name={field.id}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
-                    value={formValues[field.id]}
-                    onChange={handleInputChange}
-                    required={field.required}
-                  >
-                    {field.id === 'wifiEncryption' && wifiEncryptionOptions.map(option => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                ) : (
-                  <input
-                    id={field.id}
-                    name={field.id}
-                    type={field.type}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
-                    placeholder={field.placeholder}
-                    value={formValues[field.id]}
-                    onChange={handleInputChange}
-                    required={field.required}
-                  />
-                )}
-              </div>
-            ))}
-
-            <div className="grid grid-cols-2 gap-4 mb-4">
-              <div>
-                <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="fgColor">
-                  Foreground Color
-                </label>
-                <input
-                  className="w-full"
-                  id="fgColor"
-                  type="color"
-                  value={foregroundColor}
-                  onChange={(e) => setForegroundColor(e.target.value)}
+              
+              {field.type === 'textarea' ? (
+                <textarea
+                  id={field.id}
+                  name={field.id}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                  placeholder={field.placeholder}
+                  value={formValues[field.id]}
+                  onChange={handleInputChange}
+                  rows={4}
+                  required={field.required}
                 />
-              </div>
-              <div>
-                <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="bgColor">
-                  Background Color
-                </label>
+              ) : field.type === 'select' ? (
+                <select
+                  id={field.id}
+                  name={field.id}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                  value={formValues[field.id]}
+                  onChange={handleInputChange}
+                  required={field.required}
+                >
+                  {field.id === 'wifiEncryption' && wifiEncryptionOptions.map(option => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              ) : (
                 <input
-                  className="w-full"
-                  id="bgColor"
-                  type="color"
-                  value={backgroundColor}
-                  onChange={(e) => setBackgroundColor(e.target.value)}
+                  id={field.id}
+                  name={field.id}
+                  type={field.type}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                  placeholder={field.placeholder}
+                  value={formValues[field.id]}
+                  onChange={handleInputChange}
+                  required={field.required}
                 />
-              </div>
+              )}
             </div>
+          ))}
 
-            <div className="mb-4">
-              <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="size">
-                Size: {size}px
+          <div className="grid grid-cols-2 gap-4 mb-4">
+            <div>
+              <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="fgColor">
+                Foreground Color
               </label>
               <input
                 className="w-full"
-                id="size"
-                type="range"
-                min="128"
-                max="512"
-                step="8"
-                value={size}
-                onChange={(e) => setSize(Number(e.target.value))}
+                id="fgColor"
+                type="color"
+                value={foregroundColor}
+                onChange={(e) => setForegroundColor(e.target.value)}
               />
             </div>
-            
-            <div className="mb-4">
-              <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="image-format">
-                Download Format
+            <div>
+              <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="bgColor">
+                Background Color
               </label>
-              <div className="flex flex-wrap gap-3">
-                {imageFormats.map((format) => (
-                  <label key={format.value} className="inline-flex items-center">
-                    <input
-                      type="radio"
-                      className="form-radio"
-                      name="image-format"
-                      value={format.value}
-                      checked={imageFormat === format.value}
-                      onChange={() => setImageFormat(format.value as ImageFormat)}
-                    />
-                    <span className="ml-2">{format.label}</span>
-                  </label>
-                ))}
-              </div>
+              <input
+                className="w-full"
+                id="bgColor"
+                type="color"
+                value={backgroundColor}
+                onChange={(e) => setBackgroundColor(e.target.value)}
+              />
             </div>
-            
-            <button
-              className="w-full bg-primary hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
-              onClick={generateQRCode}
-              disabled={!isFormValid() || !qrValue}
-            >
-              Download QR Code
-            </button>
+          </div>
+
+          <div className="mb-4">
+            <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="size">
+              Size: {size}px
+            </label>
+            <input
+              className="w-full"
+              id="size"
+              type="range"
+              min="128"
+              max="512"
+              step="8"
+              value={size}
+              onChange={(e) => setSize(Number(e.target.value))}
+            />
           </div>
           
-          {/* Right Column - Preview */}
-          <div className="flex flex-col items-center justify-center">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">QR Code Preview</h3>
-            <div className="bg-gray-50 p-6 rounded-lg border border-gray-200 flex items-center justify-center w-full h-full" ref={qrRef}>
-              {qrValue ? (
-                <div className="p-4 bg-white rounded-md shadow-sm inline-block">
-                  <QRCode
-                    value={qrValue}
-                    size={size}
-                    fgColor={foregroundColor}
-                    bgColor={backgroundColor}
-                    level="M"
+          <div className="mb-4">
+            <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="image-format">
+              Download Format
+            </label>
+            <div className="flex flex-wrap gap-3">
+              {imageFormats.map((format) => (
+                <label key={format.value} className="inline-flex items-center">
+                  <input
+                    type="radio"
+                    className="form-radio"
+                    name="image-format"
+                    value={format.value}
+                    checked={imageFormat === format.value}
+                    onChange={() => setImageFormat(format.value as ImageFormat)}
                   />
-                </div>
-              ) : (
-                <div className="text-gray-400 text-center">
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-12 h-12 mx-auto mb-2">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0 1 3.75 9.375v-4.5ZM3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 0 1-1.125-1.125v-4.5ZM13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0 1 13.5 9.375v-4.5Z" />
-                  </svg>
-                  <p>Fill the form to generate a QR code</p>
-                </div>
-              )}
+                  <span className="ml-2">{format.label}</span>
+                </label>
+              ))}
             </div>
-            <p className="text-sm text-gray-500 mt-4">
-              {qrValue && `Type: ${qrTypes.find(t => t.value === qrType)?.label}`}
-            </p>
           </div>
+          
+          <button
+            className="w-full bg-primary hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
+            onClick={generateQRCode}
+            disabled={!isFormValid() || !qrValue}
+          >
+            Download QR Code
+          </button>
+        </div>
+        
+        {/* Right Column - Preview */}
+        <div className="flex flex-col items-center justify-center">
+          <h3 className="text-lg font-medium text-gray-900 mb-4">QR Code Preview</h3>
+          <div className="bg-gray-50 p-6 rounded-lg border border-gray-200 flex items-center justify-center w-full h-full" ref={qrRef}>
+            {qrValue ? (
+              <div className="p-4 bg-white rounded-md shadow-sm inline-block">
+                <QRCode
+                  value={qrValue}
+                  size={size}
+                  fgColor={foregroundColor}
+                  bgColor={backgroundColor}
+                  level="M"
+                />
+              </div>
+            ) : (
+              <div className="text-gray-400 text-center">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-12 h-12 mx-auto mb-2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0 1 3.75 9.375v-4.5ZM3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 0 1-1.125-1.125v-4.5ZM13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0 1 13.5 9.375v-4.5Z" />
+                </svg>
+                <p>Fill the form to generate a QR code</p>
+              </div>
+            )}
+          </div>
+          <p className="text-sm text-gray-500 mt-4">
+            {qrValue && `Type: ${qrTypes.find(t => t.value === qrType)?.label}`}
+          </p>
         </div>
       </div>
     </div>
