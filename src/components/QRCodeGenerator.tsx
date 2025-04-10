@@ -3,16 +3,11 @@
 import React, { useState, useRef, useEffect } from "react";
 import QRCode from "react-qr-code";
 import * as qrcode from "qrcode";
-import QRCodeStyling from "@/components/QRCodeStyling";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 
 type ImageFormat = 'png' | 'svg' | 'jpg' | 'eps' | 'pdf';
 
 interface QRCodeGeneratorProps {
   onDownload?: (dataUrl: string) => void;
-  initialValue?: string;
 }
 
 type QRCodeType = 'url' | 'text' | 'email' | 'phone' | 'sms' | 'contact' | 'wifi';
@@ -25,7 +20,7 @@ interface FormField {
   required?: boolean;
 }
 
-export default function QRCodeGenerator({ onDownload, initialValue }: QRCodeGeneratorProps) {
+export default function QRCodeGenerator({ onDownload }: QRCodeGeneratorProps) {
   const [qrType, setQRType] = useState<QRCodeType>('url');
   const [formValues, setFormValues] = useState<Record<string, string>>({
     url: '',

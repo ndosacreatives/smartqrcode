@@ -6,7 +6,10 @@ import { Bars3Icon, XMarkIcon } from '@heroicons/react/24/outline';
 import { Button } from "@/components/ui/button";
 import { MoonIcon, SunIcon } from "@heroicons/react/24/outline";
 import { useTheme } from "next-themes";
-import { Menu, X } from "lucide-react";
+// Remove Clerk imports until fully configured
+// import { UserButton, SignedIn, SignedOut } from "@clerk/nextjs";
+// Removed unused Lucide icons
+// import { Menu, X } from "lucide-react";
 
 const navigation = [
   { name: 'Home', href: '/' },
