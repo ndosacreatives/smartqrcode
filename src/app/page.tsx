@@ -1,103 +1,140 @@
-import Image from "next/image";
+"use client";
+
+import { useState } from "react";
+import Link from "next/link";
+import QRCodeGenerator from "@/components/QRCodeGenerator";
+import BarcodeGenerator from "@/components/BarcodeGenerator";
+import SequenceGenerator from "@/components/SequenceGenerator";
+import TabNavigation from "@/components/TabNavigation";
+
+// Unified component for code generation
+function UnifiedGenerator() {
+  const [activeTab, setActiveTab] = useState<string>("qrcode");
+  
+  return (
+    <div className="w-full">
+      {/* Inline Tab Navigation */}
+      <div className="w-full border-b border-gray-300 mb-6">
+        <nav className="flex flex-wrap space-x-1 sm:space-x-8" aria-label="Tabs">
+          {[
+            { id: "qrcode", label: "QR Code Generator" },
+            { id: "barcode", label: "Barcode Generator" },
+            { id: "sequence", label: "Sequence Generator" }
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`${
+                activeTab === tab.id
+                  ? "border-primary text-primary font-bold"
+                  : "border-transparent text-gray-700 hover:text-primary hover:border-gray-400"
+              } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm sm:text-base transition-colors flex-grow sm:flex-grow-0 text-center`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </nav>
+      </div>
+      
+      {/* Generator Components */}
+      <div className="bg-white rounded-lg shadow-md">
+        {activeTab === "qrcode" && <QRCodeGenerator />}
+        {activeTab === "barcode" && <BarcodeGenerator />}
+        {activeTab === "sequence" && <SequenceGenerator />}
+      </div>
+    </div>
+  );
+}
 
 export default function Home() {
   return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm/6 text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-[family-name:var(--font-geist-mono)] font-semibold">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
-
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+    <div className="max-w-7xl mx-auto px-4 py-12 sm:px-6 lg:px-8">
+      {/* Tab Navigation for routes */}
+      <div className="mb-8 bg-gray-50 rounded-lg shadow-md p-2">
+        <TabNavigation />
+      </div>
+      
+      {/* All-in-one Generator Section */}
+      <div className="mb-12 bg-white p-6 rounded-xl shadow-lg">
+        <h2 className="text-2xl font-bold text-gray-900 mb-6">Generate Any Code Without Leaving the Page</h2>
+        <UnifiedGenerator />
+      </div>
+      
+      {/* Hero Section with Modern Look */}
+      <div className="relative bg-gradient-to-r from-blue-600 to-indigo-700 rounded-3xl shadow-2xl p-8 mb-12">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <div className="text-white">
+            <h1 className="text-4xl font-extrabold tracking-tight sm:text-5xl md:text-6xl">
+              <span className="block">Smart QR Code &</span>
+              <span className="block text-yellow-300">Barcode Generator</span>
+            </h1>
+            <p className="mt-4 text-xl text-blue-100">
+              Generate QR codes and barcodes quickly and easily. Customize colors, size, and download in multiple formats.
+            </p>
+            <div className="mt-8 flex space-x-4">
+              <Link href="#" className="px-6 py-3 bg-white text-primary hover:bg-blue-50 rounded-lg font-bold transition-colors shadow-md">
+                Learn More
+              </Link>
+              <Link href="#" className="px-6 py-3 bg-yellow-400 text-gray-900 hover:bg-yellow-300 rounded-lg font-bold transition-colors shadow-md">
+                Contact Us
+              </Link>
+            </div>
+          </div>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+      </div>
+
+      {/* Features Section */}
+      <div className="py-12 bg-white rounded-3xl shadow-lg">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="lg:text-center">
+            <h2 className="text-base text-primary font-semibold tracking-wide uppercase">Features</h2>
+            <p className="mt-2 text-3xl leading-8 font-extrabold tracking-tight text-gray-900 sm:text-4xl">
+              Everything you need for code generation
+            </p>
+          </div>
+
+          <div className="mt-10">
+            <div className="grid grid-cols-1 gap-10 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="flex flex-col items-center group hover:bg-blue-50 p-6 rounded-xl transition-all duration-300 transform hover:-translate-y-1 hover:shadow-lg">
+                <div className="flex items-center justify-center h-16 w-16 rounded-full bg-primary text-white mb-4 shadow-lg">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-8 h-8">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0 1 3.75 9.375v-4.5ZM3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 0 1-1.125-1.125v-4.5ZM13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0 1 13.5 9.375v-4.5Z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 6.75h.75v.75h-.75v-.75ZM17.25 6.75h.75v.75h-.75v-.75ZM6.75 17.25h.75v.75h-.75v-.75Z" />
+                  </svg>
+                </div>
+                <h3 className="text-xl font-medium text-gray-900 text-center">QR Code Generation</h3>
+                <p className="mt-2 text-base text-gray-500 text-center">
+                  Generate QR codes with custom colors, sizes, and error correction levels.
+                </p>
+              </div>
+
+              <div className="flex flex-col items-center group hover:bg-blue-50 p-6 rounded-xl transition-all duration-300 transform hover:-translate-y-1 hover:shadow-lg">
+                <div className="flex items-center justify-center h-16 w-16 rounded-full bg-primary text-white mb-4 shadow-lg">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-8 h-8">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0 1 3.75 9.375v-4.5ZM3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 0 1-1.125-1.125v-4.5ZM13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0 1 13.5 9.375v-4.5Z" />
+                  </svg>
+                </div>
+                <h3 className="text-xl font-medium text-gray-900 text-center">Barcode Generation</h3>
+                <p className="mt-2 text-base text-gray-500 text-center">
+                  Create various barcode formats including CODE128, UPC, EAN, and more.
+                </p>
+              </div>
+
+              <div className="flex flex-col items-center group hover:bg-blue-50 p-6 rounded-xl transition-all duration-300 transform hover:-translate-y-1 hover:shadow-lg">
+                <div className="flex items-center justify-center h-16 w-16 rounded-full bg-primary text-white mb-4 shadow-lg">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-8 h-8">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                  </svg>
+                </div>
+                <h3 className="text-xl font-medium text-gray-900 text-center">Multiple Format Downloads</h3>
+                <p className="mt-2 text-base text-gray-500 text-center">
+                  Download your generated codes as PNG, SVG, JPEG or EPS with one click.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
