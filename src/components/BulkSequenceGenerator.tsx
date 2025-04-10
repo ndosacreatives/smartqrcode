@@ -217,59 +217,66 @@ export default function BulkSequenceGenerator() {
         pdf.save(`${format === "qrcode" ? "qrcodes" : "barcodes"}-layout.pdf`);
       } else { // outputType === 'pdf-tile'
         // --- PDF Tiling Logic --- 
-        const pdf = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' }); // Default A4
-        const pdfWidth = pdf.internal.pageSize.getWidth();
-        const pdfHeight = pdf.internal.pageSize.getHeight();
         const margin = 10; // mm
         const spacingVal = tileSpacingUnit === 'cm' ? tileSpacing * 10 : tileSpacing; // mm
         const outlineWidth = 0.1; // mm
+        const codeFontSize = 6; // pt -> roughly 2mm height
+        const textMarginBottom = 2; // mm below code image
 
-        const usableWidth = pdfWidth - margin * 2;
-        const usableHeight = pdfHeight - margin * 2;
+        // Calculate exact grid dimensions based on settings
+        const gridWidthMM = (tileColumns * codeSizeMM) + (Math.max(0, tileColumns - 1) * spacingVal);
+        const gridHeightMM = (tileRows * codeSizeMM) + (Math.max(0, tileRows - 1) * spacingVal);
+        
+        // Calculate PDF page size needed for one grid + margins
+        const pdfPageWidth = gridWidthMM + margin * 2;
+        const pdfPageHeight = gridHeightMM + margin * 2;
 
-        // Calculate cell dimensions based on fixed code size and spacing
+        console.log(`PDF Tiling: Target Grid ${gridWidthMM.toFixed(1)}x${gridHeightMM.toFixed(1)}mm -> Page ${pdfPageWidth.toFixed(1)}x${pdfPageHeight.toFixed(1)}mm`);
+        
+        // Use custom page size based on the calculated grid size + margins
+        const pdf = new jsPDF({ 
+          orientation: 'p', // Keep portrait for simplicity, page size adjusts
+          unit: 'mm', 
+          format: [pdfPageWidth, pdfPageHeight] 
+        }); 
+        
+        // Cell dimensions are determined by code size
         const cellWidth = codeSizeMM;
         const cellHeight = codeSizeMM;
         
-        // Calculate actual columns/rows that fit based on codeSize and spacing
-        const actualColumns = Math.max(1, Math.floor((usableWidth + spacingVal) / (cellWidth + spacingVal)));
-        const actualRows = Math.max(1, Math.floor((usableHeight + spacingVal) / (cellHeight + spacingVal)));
-        
-        const codesPerPage = actualColumns * actualRows;
+        // Codes per page is simply the user's desired grid
+        const codesPerPage = tileColumns * tileRows;
         const totalPages = Math.ceil(codes.length / codesPerPage);
         
-        console.log(`PDF Tiling: Page ${pdfWidth}x${pdfHeight}mm, Usable ${usableWidth.toFixed(1)}x${usableHeight.toFixed(1)}mm, ` +
-                    `Code ${codeSizeMM}mm, Spacing ${spacingVal}mm -> ${actualColumns}x${actualRows} = ${codesPerPage} codes/page, ${totalPages} total pages`);
-
         let codeIndex = 0;
         for (let page = 0; page < totalPages; page++) {
           if (page > 0) {
-            pdf.addPage();
+            // Add new page with the same custom dimensions
+            pdf.addPage([pdfPageWidth, pdfPageHeight], 'p'); 
           }
           
-          for (let r = 0; r < actualRows; r++) {
-            for (let c = 0; c < actualColumns; c++) {
+          for (let r = 0; r < tileRows; r++) {
+            for (let c = 0; c < tileColumns; c++) {
               if (codeIndex >= codes.length) break;
               
               const code = codes[codeIndex];
               
-              // Calculate top-left corner for the cell
+              // Calculate top-left corner for the cell within the margins
               const cellXPos = margin + c * (cellWidth + spacingVal);
               const cellYPos = margin + r * (cellHeight + spacingVal);
               
               const canvas = document.createElement("canvas");
               try {
                 if (format === "qrcode") {
-                  // Adjust canvas size slightly for QR code to avoid tiny borders if possible
-                  const qrCanvasSize = Math.max(64, codeSizeMM * 4); // Heuristic for pixel size
+                  const qrCanvasSize = Math.max(64, codeSizeMM * 4);
                   await qrcode.toCanvas(canvas, code, { width: qrCanvasSize, margin: 1 });
                 } else {
                   JsBarcode(canvas, code, { 
                     format: barcodeType, 
-                    width: 2, // Adjust barcode width relative to height?
-                    height: Math.max(20, codeSizeMM * 3), // Heuristic for pixel height
-                    displayValue: false, // Usually hide value on tiled sheets
-                    margin: 5, // Barcode margin
+                    width: 2, 
+                    height: Math.max(20, codeSizeMM * 3), 
+                    displayValue: false, // Keep value hidden in barcode itself
+                    margin: 5, 
                     lineColor: "#000000", 
                     background: "#FFFFFF" 
                   });
@@ -284,12 +291,16 @@ export default function BulkSequenceGenerator() {
                    pdf.setLineWidth(outlineWidth);
                    pdf.rect(cellXPos, cellYPos, codeSizeMM, codeSizeMM);
                 }
+                
+                // Add the code text below the image, centered
+                pdf.setFontSize(codeFontSize);
+                pdf.text(code, cellXPos + codeSizeMM / 2, cellYPos + codeSizeMM + textMarginBottom, { align: 'center' });
 
               } catch (imgErr) {
                 console.error(`Failed to generate image for code: ${code}`, imgErr);
                 pdf.setFontSize(6);
-                pdf.text(`Error for: ${code}`, cellXPos + 1, cellYPos + codeSizeMM / 2);
-                 if (addOutline) { // Draw outline even on error
+                pdf.text(`Error: ${code}`, cellXPos + 1, cellYPos + codeSizeMM / 2);
+                 if (addOutline) {
                    pdf.setLineWidth(outlineWidth);
                    pdf.rect(cellXPos, cellYPos, codeSizeMM, codeSizeMM);
                 }
