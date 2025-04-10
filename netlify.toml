@@ -1,13 +1,9 @@
 [build]
-  command = "npm run build"
-  publish = "out"
+  command = "npm run netlify-build"
+  publish = ".next"
 
 [build.environment]
-  NODE_VERSION = "18"
-  NEXT_PUBLIC_SITE_URL = "https://smartqrcode.netlify.app"
+  NEXT_PRIVATE_TARGET = "serverless"
 
-# Redirect all requests to /index.html so client-side routing works
-[[redirects]]
-  from = "/*"
-  to = "/index.html"
-  status = 200 
+[[plugins]]
+  package = "@netlify/plugin-nextjs" 

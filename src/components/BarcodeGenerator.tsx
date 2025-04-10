@@ -78,7 +78,7 @@ export default function BarcodeGenerator({ onDownload }: BarcodeGeneratorProps) 
         setErrorMessage("Failed to generate barcode. Please check your input.");
       }
     }
-  }, [text, barcodeType, width, height, displayValue, foregroundColor, backgroundColor, marginTop, marginBottom]);
+  }, [text, barcodeType, width, height, displayValue, foregroundColor, backgroundColor, marginTop, marginBottom, validateInput]);
 
   const downloadBarcode = () => {
     if (!canvasRef.current || text.trim() === "") return;
