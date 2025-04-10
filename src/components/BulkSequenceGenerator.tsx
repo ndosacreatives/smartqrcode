@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef } from "react";
+import React, { useState } from "react";
 import * as qrcode from "qrcode";
 import JsBarcode from "jsbarcode";
 import JSZip from "jszip";
@@ -326,7 +326,7 @@ export default function BulkSequenceGenerator() {
                     <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m6.75 12H9m1.5-12H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
                   </svg>
                   <p className="text-gray-500">
-                    Configure your settings and click "Generate Bulk Codes" to start.
+                    Configure your settings and click &quot;Generate Bulk Codes&quot; to start.
                   </p>
                   <p className="text-gray-400 text-sm mt-2">
                     All codes will be saved as individual image files in a ZIP archive.

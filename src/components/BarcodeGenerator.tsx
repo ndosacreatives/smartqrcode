@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import JsBarcode from "jsbarcode";
 
 type ImageFormat = 'png' | 'svg' | 'jpg' | 'eps';
@@ -44,7 +44,7 @@ export default function BarcodeGenerator({ onDownload }: BarcodeGeneratorProps) 
   ];
 
   // Validate input based on barcode type
-  const validateInput = (value: string, type: string) => {
+  const validateInput = useCallback((value: string, type: string) => {
     const format = barcodeFormats.find(f => f.value === type);
     if (!format) return false;
     
@@ -55,7 +55,7 @@ export default function BarcodeGenerator({ onDownload }: BarcodeGeneratorProps) 
       setErrorMessage(`Invalid format for ${format.label}`);
       return false;
     }
-  };
+  }, [barcodeFormats, setErrorMessage]);
 
   // Generate barcode whenever parameters change
   useEffect(() => {

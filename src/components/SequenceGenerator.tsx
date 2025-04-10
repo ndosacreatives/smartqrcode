@@ -43,33 +43,33 @@ export default function SequenceGenerator() {
   
   // Generate preview whenever input values change
   useEffect(() => {
+    const generatePreview = () => {
+      const paddedNumber = String(startNumber).padStart(padding, '0');
+      const code = `${prefix}${paddedNumber}`;
+      setPreviewCode(code);
+      
+      if (format === "barcode" && barcodeCanvasRef.current) {
+        try {
+          JsBarcode(barcodeCanvasRef.current, code, {
+            format: barcodeType,
+            width: 2,
+            height: 100,
+            displayValue: true,
+            lineColor: "#000000",
+            background: "#FFFFFF",
+          });
+        } catch (err) {
+          console.error("Error generating barcode", err);
+        }
+      }
+      
+      return code;
+    };
+
     if (prefix !== '' || startNumber > 0) {
       generatePreview();
     }
-  }, [prefix, startNumber, padding, format, barcodeType]);
-
-  const generatePreview = () => {
-    const paddedNumber = String(startNumber).padStart(padding, '0');
-    const code = `${prefix}${paddedNumber}`;
-    setPreviewCode(code);
-    
-    if (format === "barcode" && barcodeCanvasRef.current) {
-      try {
-        JsBarcode(barcodeCanvasRef.current, code, {
-          format: barcodeType,
-          width: 2,
-          height: 100,
-          displayValue: true,
-          lineColor: "#000000",
-          background: "#FFFFFF",
-        });
-      } catch (err) {
-        console.error("Error generating barcode", err);
-      }
-    }
-    
-    return code;
-  };
+  }, [prefix, startNumber, padding, format, barcodeType, barcodeCanvasRef]);
 
   const generateSequence = () => {
     const sequences = [];
@@ -101,7 +101,7 @@ export default function SequenceGenerator() {
           
           // Render QR code to the temporary div
           const qrComponent = <QRCode value={codeValue} size={256} level="M" />;
-          // @ts-ignore - Using React DOM to render
+          // @ts-expect-error - Using React DOM to render
           createRoot(qrElement).render(qrComponent);
           
           // Get the rendered SVG and convert to string
