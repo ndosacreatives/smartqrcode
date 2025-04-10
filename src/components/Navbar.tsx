@@ -12,7 +12,6 @@ const navigation = [
 ];
 
 export default function Navbar() {
-  const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isClient, setIsClient] = useState(false);
 

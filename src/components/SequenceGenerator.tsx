@@ -42,15 +42,6 @@ export default function SequenceGenerator() {
     { value: "pharmacode", label: "Pharmacode" },
   ];
 
-  const imageFormats = [
-    { value: 'png', label: 'PNG' },
-    { value: 'svg', label: 'SVG' },
-    { value: 'jpg', label: 'JPG' },
-    { value: 'eps', label: 'EPS' },
-    { value: 'pdf', label: 'PDF (Single)' },
-    { value: 'pdf-tile', label: 'PDF (Tile Sheet)' }
-  ];
-  
   // Generate preview whenever input values change
   useEffect(() => {
     const generatePreview = () => {

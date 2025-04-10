@@ -42,6 +42,12 @@ export default function BulkSequenceGenerator() {
   const [displayGridWidth, setDisplayGridWidth] = useState<string>("0");
   const [displayGridHeight, setDisplayGridHeight] = useState<string>("0");
 
+  // Add a state variable for barcode height
+  const [barcodeHeight, setBarcodeHeight] = useState<number>(100);
+
+  // Add a state variable for barcode height unit
+  const [barcodeHeightUnit, setBarcodeHeightUnit] = useState<'px' | 'cm' | 'mm'>('px');
+
   const barcodeFormats = [
     { value: "CODE128", label: "Code 128 (default)" },
     { value: "EAN13", label: "EAN-13" },
@@ -52,6 +58,18 @@ export default function BulkSequenceGenerator() {
     { value: "MSI", label: "MSI" },
     { value: "pharmacode", label: "Pharmacode" },
   ];
+
+  // Add a function to convert barcode height to pixels
+  const convertHeightToPixels = (height: number, unit: 'px' | 'cm' | 'mm'): number => {
+    switch (unit) {
+      case 'cm':
+        return height * 37.7953; // 1 cm = 37.7953 px
+      case 'mm':
+        return height * 3.77953; // 1 mm = 3.77953 px
+      default:
+        return height;
+    }
+  };
 
   const generateSequence = () => {
     const sequences = [];
@@ -103,7 +121,7 @@ export default function BulkSequenceGenerator() {
             if (format === "qrcode") {
               await qrcode.toCanvas(canvas, code, { width: 256, margin: 1 });
             } else {
-              JsBarcode(canvas, code, { format: barcodeType, width: 2, height: 100, displayValue: true, lineColor: "#000000", background: "#FFFFFF" });
+              JsBarcode(canvas, code, { format: barcodeType, width: 2, height: convertHeightToPixels(barcodeHeight, barcodeHeightUnit), displayValue: true, lineColor: "#000000", background: "#FFFFFF" });
             }
             dataUrl = canvas.toDataURL("image/png").split(',')[1];
             
@@ -183,7 +201,7 @@ export default function BulkSequenceGenerator() {
                 if (format === "qrcode") {
                   await qrcode.toCanvas(canvas, code, { width: 256, margin: 1 });
                 } else {
-                  JsBarcode(canvas, code, { format: barcodeType, width: 2, height: 100, displayValue: true, lineColor: "#000000", background: "#FFFFFF" });
+                  JsBarcode(canvas, code, { format: barcodeType, width: 2, height: convertHeightToPixels(barcodeHeight, barcodeHeightUnit), displayValue: true, lineColor: "#000000", background: "#FFFFFF" });
                 }
                 const dataUrl = canvas.toDataURL("image/png");
                 
@@ -413,6 +431,42 @@ export default function BulkSequenceGenerator() {
                       {format.label}
                     </option>
                   ))}
+                </select>
+              </div>
+            )}
+
+            {format === "barcode" && (
+              <div className="mb-4">
+                <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="barcode-height">
+                  Barcode Height (px)
+                </label>
+                <input
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                  id="barcode-height"
+                  type="number"
+                  min="10"
+                  value={barcodeHeight}
+                  onChange={(e) => setBarcodeHeight(Number(e.target.value))}
+                  disabled={isGenerating}
+                />
+              </div>
+            )}
+
+            {format === "barcode" && (
+              <div className="mb-4">
+                <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="barcode-height-unit">
+                  Barcode Height Unit
+                </label>
+                <select
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                  id="barcode-height-unit"
+                  value={barcodeHeightUnit}
+                  onChange={(e) => setBarcodeHeightUnit(e.target.value as 'px' | 'cm' | 'mm')}
+                  disabled={isGenerating}
+                >
+                  <option value="px">Pixels (px)</option>
+                  <option value="cm">Centimeters (cm)</option>
+                  <option value="mm">Millimeters (mm)</option>
                 </select>
               </div>
             )}
