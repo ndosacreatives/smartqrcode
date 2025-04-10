@@ -1,6 +1,5 @@
 import React from "react";
 import BulkSequenceGenerator from "@/components/BulkSequenceGenerator";
-import TabNavigation from "@/components/TabNavigation";
 
 export const metadata = {
   title: "Bulk Sequence Generator - Smart QR & Barcode",
@@ -19,7 +18,6 @@ export default function BulkPage() {
         </p>
       </div>
       
-      <TabNavigation />
       <BulkSequenceGenerator />
     </div>
   );

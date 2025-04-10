@@ -1,10 +1,10 @@
 import React from "react";
 import BarcodeGenerator from "@/components/BarcodeGenerator";
-import TabNavigation from "@/components/TabNavigation";
+// import TabNavigation from "@/components/TabNavigation"; // Removed
 
 export const metadata = {
   title: "Barcode Generator - Smart QR & Barcode",
-  description: "Generate custom barcodes in various formats and download as PNG",
+  description: "Generate various barcode formats like Code 128, EAN, UPC, and more.",
 };
 
 export default function BarcodePage() {
@@ -15,11 +15,11 @@ export default function BarcodePage() {
           Barcode Generator
         </h1>
         <p className="mt-3 max-w-2xl mx-auto text-base text-gray-500 sm:text-lg">
-          Create barcodes in various formats including CODE128, UPC, EAN, and more. Customize appearance and download as high-quality images.
+          Create various standard barcode formats.
         </p>
       </div>
       
-      <TabNavigation />
+      {/* <TabNavigation /> */}
       <BarcodeGenerator />
     </div>
   );

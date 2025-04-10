@@ -1,10 +1,10 @@
 import React from "react";
 import QRCodeGenerator from "@/components/QRCodeGenerator";
-import TabNavigation from "@/components/TabNavigation";
+// import TabNavigation from "@/components/TabNavigation"; // Removed
 
 export const metadata = {
   title: "QR Code Generator - Smart QR & Barcode",
-  description: "Generate custom QR codes with various options and download as PNG",
+  description: "Generate custom QR codes for URLs, text, email, phone, and more.",
 };
 
 export default function QRCodePage() {
@@ -15,11 +15,11 @@ export default function QRCodePage() {
           QR Code Generator
         </h1>
         <p className="mt-3 max-w-2xl mx-auto text-base text-gray-500 sm:text-lg">
-          Create custom QR codes for URLs, text, contacts, and more. Customize colors, size, and download as high-quality images.
+          Create custom QR codes for various data types.
         </p>
       </div>
       
-      <TabNavigation />
+      {/* <TabNavigation /> */}
       <QRCodeGenerator />
     </div>
   );

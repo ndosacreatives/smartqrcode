@@ -5,7 +5,7 @@ import Link from "next/link";
 import QRCodeGenerator from "@/components/QRCodeGenerator";
 import BarcodeGenerator from "@/components/BarcodeGenerator";
 import SequenceGenerator from "@/components/SequenceGenerator";
-import TabNavigation from "@/components/TabNavigation";
+import BulkSequenceGenerator from "@/components/BulkSequenceGenerator";
 
 // Unified component for code generation
 function UnifiedGenerator() {
@@ -15,24 +15,51 @@ function UnifiedGenerator() {
     <div className="w-full">
       {/* Inline Tab Navigation */}
       <div className="w-full border-b border-gray-300 mb-6">
-        <nav className="flex flex-wrap space-x-1 sm:space-x-8" aria-label="Tabs">
-          {[
-            { id: "qrcode", label: "QR Code Generator" },
-            { id: "barcode", label: "Barcode Generator" },
-            { id: "sequence", label: "Sequence Generator" }
-          ].map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`${
-                activeTab === tab.id
-                  ? "border-primary text-primary font-bold"
-                  : "border-transparent text-gray-700 hover:text-primary hover:border-gray-400"
-              } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm sm:text-base transition-colors flex-grow sm:flex-grow-0 text-center`}
-            >
-              {tab.label}
-            </button>
-          ))}
+        <nav className="-mb-px flex flex-wrap space-x-1 sm:space-x-8" aria-label="Tabs">
+          {/* QR Code Tab */}
+          <button
+            onClick={() => setActiveTab('qrcode')}
+            className={`${
+              activeTab === 'qrcode'
+                ? "border-primary text-primary font-bold"
+                : "border-transparent text-gray-700 hover:text-primary hover:border-gray-400"
+            } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm sm:text-base transition-colors flex-grow sm:flex-grow-0 text-center`}
+          >
+            QR Code Generator
+          </button>
+          {/* Barcode Tab */}
+          <button
+            onClick={() => setActiveTab('barcode')}
+            className={`${
+              activeTab === 'barcode'
+                ? "border-primary text-primary font-bold"
+                : "border-transparent text-gray-700 hover:text-primary hover:border-gray-400"
+            } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm sm:text-base transition-colors flex-grow sm:flex-grow-0 text-center`}
+          >
+            Barcode Generator
+          </button>
+          {/* Sequence Tab */}
+          <button
+            onClick={() => setActiveTab('sequence')}
+            className={`${
+              activeTab === 'sequence'
+                ? "border-primary text-primary font-bold"
+                : "border-transparent text-gray-700 hover:text-primary hover:border-gray-400"
+            } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm sm:text-base transition-colors flex-grow sm:flex-grow-0 text-center`}
+          >
+            Sequence Generator
+          </button>
+          {/* Bulk Sequence Tab */}
+          <button
+            onClick={() => setActiveTab('bulk')}
+            className={`${
+              activeTab === 'bulk'
+                ? "border-primary text-primary font-bold"
+                : "border-transparent text-gray-700 hover:text-primary hover:border-gray-400"
+            } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm sm:text-base transition-colors flex-grow sm:flex-grow-0 text-center`}
+          >
+            Bulk Sequence Generator
+          </button>
         </nav>
       </div>
       
@@ -41,6 +68,7 @@ function UnifiedGenerator() {
         {activeTab === "qrcode" && <QRCodeGenerator />}
         {activeTab === "barcode" && <BarcodeGenerator />}
         {activeTab === "sequence" && <SequenceGenerator />}
+        {activeTab === "bulk" && <BulkSequenceGenerator />}
       </div>
     </div>
   );
@@ -49,11 +77,6 @@ function UnifiedGenerator() {
 export default function Home() {
   return (
     <div className="max-w-7xl mx-auto px-4 py-12 sm:px-6 lg:px-8">
-      {/* Tab Navigation for routes */}
-      <div className="mb-8 bg-gray-50 rounded-lg shadow-md p-2">
-        <TabNavigation />
-      </div>
-      
       {/* All-in-one Generator Section */}
       <div className="mb-12 bg-white p-6 rounded-xl shadow-lg">
         <h2 className="text-2xl font-bold text-gray-900 mb-6">Generate Any Code Without Leaving the Page</h2>

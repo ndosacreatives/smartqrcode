@@ -43,10 +43,10 @@ export default function BulkSequenceGenerator() {
   const [displayGridHeight, setDisplayGridHeight] = useState<string>("0");
 
   // Add a state variable for barcode height
-  const [barcodeHeight, setBarcodeHeight] = useState<number>(100);
+  const [barcodeHeight, setBarcodeHeight] = useState<number>(4); // Default to 4
 
   // Add a state variable for barcode height unit
-  const [barcodeHeightUnit, setBarcodeHeightUnit] = useState<'px' | 'cm' | 'mm'>('px');
+  const [barcodeHeightUnit, setBarcodeHeightUnit] = useState<'px' | 'cm' | 'mm'>('cm'); // Default to cm
 
   const barcodeFormats = [
     { value: "CODE128", label: "Code 128 (default)" },
