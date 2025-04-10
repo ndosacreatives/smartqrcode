@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import QRCodeGenerator from "@/components/QRCodeGenerator";
 import BarcodeGenerator from "@/components/BarcodeGenerator";
@@ -9,54 +9,88 @@ import BulkSequenceGenerator from "@/components/BulkSequenceGenerator";
 
 // Unified component for code generation
 function UnifiedGenerator() {
-  const [activeTab, setActiveTab] = useState<string>("qrcode");
+  const [activeTab, setActiveTab] = useState<string>(() => {
+    // Check URL hash first (for sharing)
+    if (typeof window !== 'undefined') {
+      const hash = window.location.hash.replace('#', '');
+      if (['qrcode', 'barcode', 'sequence', 'bulk'].includes(hash)) {
+        return hash;
+      }
+      
+      // Then check localStorage (for returning users)
+      const savedTab = localStorage.getItem('activeGeneratorTab');
+      if (savedTab && ['qrcode', 'barcode', 'sequence', 'bulk'].includes(savedTab)) {
+        return savedTab;
+      }
+    }
+    
+    // Default to qrcode if nothing found
+    return "qrcode";
+  });
+  
+  // Update localStorage and URL when tab changes
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab);
+    
+    // Save to localStorage for returning users
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('activeGeneratorTab', tab);
+      
+      // Update URL hash for shareability without page reload
+      window.history.replaceState(null, '', `#${tab}`);
+    }
+  };
   
   return (
     <div className="w-full">
       {/* Inline Tab Navigation */}
-      <div className="w-full border-b border-gray-300 mb-6">
-        <nav className="-mb-px flex flex-wrap space-x-1 sm:space-x-8" aria-label="Tabs">
+      <div className="w-full bg-gray-50 rounded-lg p-2 border border-gray-100 mb-6">
+        <nav className="-mb-px flex flex-wrap justify-center space-x-2 sm:space-x-6" aria-label="Tabs">
           {/* QR Code Tab */}
           <button
-            onClick={() => setActiveTab('qrcode')}
+            onClick={() => handleTabChange('qrcode')}
+            id="tab-qrcode"
             className={`${
               activeTab === 'qrcode'
-                ? "border-primary text-primary font-bold"
-                : "border-transparent text-gray-700 hover:text-primary hover:border-gray-400"
-            } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm sm:text-base transition-colors flex-grow sm:flex-grow-0 text-center`}
+                ? "bg-indigo-600 text-white font-bold shadow-md"
+                : "bg-white text-gray-700 hover:text-indigo-600 hover:bg-indigo-50"
+            } whitespace-nowrap py-3 px-4 rounded-lg font-medium text-sm sm:text-base transition-all duration-200 flex-grow sm:flex-grow-0 text-center`}
           >
             QR Code Generator
           </button>
           {/* Barcode Tab */}
           <button
-            onClick={() => setActiveTab('barcode')}
+            onClick={() => handleTabChange('barcode')}
+            id="tab-barcode"
             className={`${
               activeTab === 'barcode'
-                ? "border-primary text-primary font-bold"
-                : "border-transparent text-gray-700 hover:text-primary hover:border-gray-400"
-            } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm sm:text-base transition-colors flex-grow sm:flex-grow-0 text-center`}
+                ? "bg-indigo-600 text-white font-bold shadow-md"
+                : "bg-white text-gray-700 hover:text-indigo-600 hover:bg-indigo-50"
+            } whitespace-nowrap py-3 px-4 rounded-lg font-medium text-sm sm:text-base transition-all duration-200 flex-grow sm:flex-grow-0 text-center`}
           >
             Barcode Generator
           </button>
           {/* Sequence Tab */}
           <button
-            onClick={() => setActiveTab('sequence')}
+            onClick={() => handleTabChange('sequence')}
+            id="tab-sequence"
             className={`${
               activeTab === 'sequence'
-                ? "border-primary text-primary font-bold"
-                : "border-transparent text-gray-700 hover:text-primary hover:border-gray-400"
-            } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm sm:text-base transition-colors flex-grow sm:flex-grow-0 text-center`}
+                ? "bg-indigo-600 text-white font-bold shadow-md"
+                : "bg-white text-gray-700 hover:text-indigo-600 hover:bg-indigo-50"
+            } whitespace-nowrap py-3 px-4 rounded-lg font-medium text-sm sm:text-base transition-all duration-200 flex-grow sm:flex-grow-0 text-center`}
           >
             Sequence Generator
           </button>
           {/* Bulk Sequence Tab */}
           <button
-            onClick={() => setActiveTab('bulk')}
+            onClick={() => handleTabChange('bulk')}
+            id="tab-bulk"
             className={`${
               activeTab === 'bulk'
-                ? "border-primary text-primary font-bold"
-                : "border-transparent text-gray-700 hover:text-primary hover:border-gray-400"
-            } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm sm:text-base transition-colors flex-grow sm:flex-grow-0 text-center`}
+                ? "bg-indigo-600 text-white font-bold shadow-md"
+                : "bg-white text-gray-700 hover:text-indigo-600 hover:bg-indigo-50"
+            } whitespace-nowrap py-3 px-4 rounded-lg font-medium text-sm sm:text-base transition-all duration-200 flex-grow sm:flex-grow-0 text-center`}
           >
             Bulk Sequence Generator
           </button>
@@ -79,7 +113,7 @@ export default function Home() {
     <div className="max-w-7xl mx-auto px-4 py-12 sm:px-6 lg:px-8">
       {/* All-in-one Generator Section */}
       <div className="mb-12 bg-white p-6 rounded-xl shadow-lg">
-        <h2 className="text-2xl font-bold text-gray-900 mb-6">Generate Any Code Without Leaving the Page</h2>
+        <h2 className="text-2xl font-bold text-gray-900 mb-6 text-center">Generate Any Code Without Leaving the Page</h2>
         <UnifiedGenerator />
       </div>
       
