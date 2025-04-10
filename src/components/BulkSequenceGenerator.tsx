@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import * as qrcode from "qrcode";
 import JsBarcode from "jsbarcode";
 import JSZip from "jszip";
@@ -103,7 +103,8 @@ export default function BulkSequenceGenerator() {
     setBarcodeHeightUnit(newUnit);
   };
 
-  const generateSequence = () => {
+  // Wrap generateSequence in useCallback to stabilize its reference
+  const generateSequence = useCallback(() => {
     const sequences = [];
     let currentNumber = startNumber;
     
@@ -115,7 +116,7 @@ export default function BulkSequenceGenerator() {
     }
     
     return sequences;
-  };
+  }, [prefix, suffix, startNumber, padding, count, increment]); // Add dependencies
 
   const generateBulkCodes = async () => {
     setIsGenerating(true);
@@ -285,14 +286,11 @@ export default function BulkSequenceGenerator() {
         // --- Calculate Code Aspect Ratio & Image Height --- 
         let imageAspectRatio = 1.0; // Default for QR code
         if (format === 'barcode') {
-          try {
+          try { // Quick ratio check for display
             const sampleCanvas = document.createElement('canvas');
-            // Generate barcode with standard width=2 to get ratio
-            JsBarcode(sampleCanvas, codes[0] || '1234', { format: barcodeType, width: 2, height: 100, displayValue: false }); 
-            if (sampleCanvas.width > 0) {
-                imageAspectRatio = sampleCanvas.height / sampleCanvas.width;
-            }
-          } catch (e) { console.error("Could not measure barcode ratio", e); }
+            JsBarcode(sampleCanvas, '1234', { format: barcodeType, width: 2, height: 100, displayValue: false }); 
+            if (sampleCanvas.width > 0) imageAspectRatio = sampleCanvas.height / sampleCanvas.width;
+          } catch (_e) { /* Ignore error for display, rename unused var */ }
         }
         const imageMaxHeightMM = imageMaxWidthMM * imageAspectRatio; // Height constrained by width and ratio
 
