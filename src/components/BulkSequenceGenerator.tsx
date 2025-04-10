@@ -44,10 +44,6 @@ export default function BulkSequenceGenerator() {
   // Add state for preview code images
   const [previewCodeImages, setPreviewCodeImages] = useState<(string | null)[]>([]);
 
-  // Add state for preview container dimensions
-  const [previewWidthPx, setPreviewWidthPx] = useState<number>(210); // Default A4 Portrait approx
-  const [previewHeightPx, setPreviewHeightPx] = useState<number>(297); // Default A4 Portrait approx
-
   // Add a state variable for barcode height
   const [barcodeHeight, setBarcodeHeight] = useState<number>(4); // Default to 4
 
@@ -481,7 +477,7 @@ export default function BulkSequenceGenerator() {
       generatePreviewImages();
     }
 
-  }, [ prefix, suffix, startNumber, increment, padding, count, format, barcodeType, tileColumns, tileRows, outputType /* dependencies for preview */ ]);
+  }, [ prefix, suffix, startNumber, increment, padding, count, format, barcodeType, tileColumns, tileRows, outputType, generateSequence /* Add generateSequence dependency */ ]);
 
   // Effect to calculate and display estimated grid size for tiling
   useEffect(() => {
@@ -940,6 +936,7 @@ export default function BulkSequenceGenerator() {
                            >
                              {showCode ? (
                                imageUrl ? (
+                                 // eslint-disable-next-line @next/next/no-img-element
                                  <img 
                                    src={imageUrl} 
                                    alt={`Code Preview ${index + 1}`}
