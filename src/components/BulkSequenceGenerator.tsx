@@ -217,41 +217,40 @@ export default function BulkSequenceGenerator() {
         pdf.save(`${format === "qrcode" ? "qrcodes" : "barcodes"}-layout.pdf`);
       } else { // outputType === 'pdf-tile'
         // --- PDF Tiling Logic --- 
-        const margin = 10; // mm
-        const spacingVal = tileSpacingUnit === 'cm' ? tileSpacing * 10 : tileSpacing; // mm
-        const outlineWidth = 0.1; // mm
-        const codeFontSize = 6; // pt -> roughly 2mm height
-        const textMarginBottom = 2; // mm below code image
+        const margin = 10; // mm - Page margin
+        const spacingVal = tileSpacingUnit === 'cm' ? tileSpacing * 10 : tileSpacing; // mm - Space between codes
+        const outlineWidth = 0.05; // mm - Thinner border
+        const codePadding = 1.5; // mm - Padding inside the border around the code+text
+        const codeFontSize = 5; // pt - Smaller font size for text
+        const textHeightApproximation = 1.5; // mm - Approximate height of the text line
+        const textImageSpacing = 0.5; // mm - Space between image bottom and text top
+        
+        // Total size allocated for one code tile (including internal padding and space for text)
+        const tileWidthMM = codeSizeMM;
+        const tileHeightMM = codeSizeMM + textImageSpacing + textHeightApproximation + codePadding * 2; // Height includes code, text, and padding
 
-        // Calculate exact grid dimensions based on settings
-        const gridWidthMM = (tileColumns * codeSizeMM) + (Math.max(0, tileColumns - 1) * spacingVal);
-        const gridHeightMM = (tileRows * codeSizeMM) + (Math.max(0, tileRows - 1) * spacingVal);
+        // Calculate exact grid dimensions based on tile size and spacing
+        const gridWidthMM = (tileColumns * tileWidthMM) + (Math.max(0, tileColumns - 1) * spacingVal);
+        const gridHeightMM = (tileRows * tileHeightMM) + (Math.max(0, tileRows - 1) * spacingVal);
         
         // Calculate PDF page size needed for one grid + margins
         const pdfPageWidth = gridWidthMM + margin * 2;
         const pdfPageHeight = gridHeightMM + margin * 2;
 
-        console.log(`PDF Tiling: Target Grid ${gridWidthMM.toFixed(1)}x${gridHeightMM.toFixed(1)}mm -> Page ${pdfPageWidth.toFixed(1)}x${pdfPageHeight.toFixed(1)}mm`);
+        console.log(`PDF Tiling: Tile ${tileWidthMM.toFixed(1)}x${tileHeightMM.toFixed(1)}mm, Grid ${gridWidthMM.toFixed(1)}x${gridHeightMM.toFixed(1)}mm -> Page ${pdfPageWidth.toFixed(1)}x${pdfPageHeight.toFixed(1)}mm`);
         
-        // Use custom page size based on the calculated grid size + margins
         const pdf = new jsPDF({ 
-          orientation: 'p', // Keep portrait for simplicity, page size adjusts
+          orientation: 'p', 
           unit: 'mm', 
           format: [pdfPageWidth, pdfPageHeight] 
         }); 
         
-        // Cell dimensions are determined by code size
-        const cellWidth = codeSizeMM;
-        const cellHeight = codeSizeMM;
-        
-        // Codes per page is simply the user's desired grid
         const codesPerPage = tileColumns * tileRows;
         const totalPages = Math.ceil(codes.length / codesPerPage);
         
         let codeIndex = 0;
         for (let page = 0; page < totalPages; page++) {
           if (page > 0) {
-            // Add new page with the same custom dimensions
             pdf.addPage([pdfPageWidth, pdfPageHeight], 'p'); 
           }
           
@@ -261,22 +260,33 @@ export default function BulkSequenceGenerator() {
               
               const code = codes[codeIndex];
               
-              // Calculate top-left corner for the cell within the margins
-              const cellXPos = margin + c * (cellWidth + spacingVal);
-              const cellYPos = margin + r * (cellHeight + spacingVal);
+              // Calculate top-left corner for the entire tile (including padding/text area)
+              const tileXPos = margin + c * (tileWidthMM + spacingVal);
+              const tileYPos = margin + r * (tileHeightMM + spacingVal);
+              
+              // Calculate position and size for the code image itself inside the padding
+              const imageXPos = tileXPos + codePadding;
+              const imageYPos = tileYPos + codePadding;
+              const imageWidthMM = tileWidthMM - (codePadding * 2);
+              const imageHeightMM = codeSizeMM - (codePadding * 2); // Base image size calculation on codeSizeMM setting
+
+              // Calculate position for the text
+              const textXPos = tileXPos + tileWidthMM / 2; // Center text horizontally within the tile
+              const textYPos = imageYPos + imageHeightMM + textImageSpacing + (textHeightApproximation / 2); // Place below image with spacing
               
               const canvas = document.createElement("canvas");
               try {
+                // Generate image data
                 if (format === "qrcode") {
-                  const qrCanvasSize = Math.max(64, codeSizeMM * 4);
+                  const qrCanvasSize = Math.max(64, imageWidthMM * 4); // Scale canvas based on required output size
                   await qrcode.toCanvas(canvas, code, { width: qrCanvasSize, margin: 1 });
                 } else {
                   JsBarcode(canvas, code, { 
                     format: barcodeType, 
                     width: 2, 
-                    height: Math.max(20, codeSizeMM * 3), 
-                    displayValue: false, // Keep value hidden in barcode itself
-                    margin: 5, 
+                    height: Math.max(20, imageHeightMM * 3), // Scale height based on available image space 
+                    displayValue: false,
+                    margin: 2, // Smaller margin within barcode itself
                     lineColor: "#000000", 
                     background: "#FFFFFF" 
                   });
@@ -284,26 +294,28 @@ export default function BulkSequenceGenerator() {
                 const dataUrl = canvas.toDataURL("image/png");
                 
                 // Add image to PDF
-                pdf.addImage(dataUrl, 'PNG', cellXPos, cellYPos, codeSizeMM, codeSizeMM);
+                pdf.addImage(dataUrl, 'PNG', imageXPos, imageYPos, imageWidthMM, imageHeightMM);
 
-                // Add outline if requested
+                // Add the code text below the image, centered within the tile width
+                pdf.setFontSize(codeFontSize);
+                pdf.text(code, textXPos, textYPos, { align: 'center' });
+                
+                // Add outline border around the entire tile (image + text area + padding) if requested
                 if (addOutline) {
                    pdf.setLineWidth(outlineWidth);
-                   pdf.rect(cellXPos, cellYPos, codeSizeMM, codeSizeMM);
+                   pdf.rect(tileXPos, tileYPos, tileWidthMM, tileHeightMM); // Use tile dimensions for rect
                 }
-                
-                // Add the code text below the image, centered
-                pdf.setFontSize(codeFontSize);
-                pdf.text(code, cellXPos + codeSizeMM / 2, cellYPos + codeSizeMM + textMarginBottom, { align: 'center' });
 
               } catch (imgErr) {
-                console.error(`Failed to generate image for code: ${code}`, imgErr);
-                pdf.setFontSize(6);
-                pdf.text(`Error: ${code}`, cellXPos + 1, cellYPos + codeSizeMM / 2);
+                 // Handle image generation error (draw border and text)
+                 console.error(`Failed to generate image for code: ${code}`, imgErr);
+                 pdf.setFontSize(6);
+                 // Place error text roughly where code text would be
+                 pdf.text(`Error: ${code}`, tileXPos + tileWidthMM / 2, textYPos, { align: 'center'}); 
                  if (addOutline) {
                    pdf.setLineWidth(outlineWidth);
-                   pdf.rect(cellXPos, cellYPos, codeSizeMM, codeSizeMM);
-                }
+                   pdf.rect(tileXPos, tileYPos, tileWidthMM, tileHeightMM);
+                 }
               }
               
               codeIndex++;
