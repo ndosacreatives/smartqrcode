@@ -4,6 +4,7 @@ import React, { useState, useRef, useEffect } from "react";
 import QRCode from "react-qr-code";
 import * as qrcode from "qrcode";
 import JsBarcode from "jsbarcode";
+import { createRoot } from 'react-dom/client';
 
 type ImageFormat = 'png' | 'svg' | 'jpg' | 'eps';
 
@@ -18,7 +19,6 @@ export default function SequenceGenerator() {
   const [previewCode, setPreviewCode] = useState<string>("");
   const [generatedCodes, setGeneratedCodes] = useState<string[]>([]);
   const [imageFormat, setImageFormat] = useState<ImageFormat>('png');
-  const [showFormatOptions, setShowFormatOptions] = useState<boolean>(false);
   
   const qrCodeRef = useRef<HTMLDivElement>(null);
   const barcodeCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -102,7 +102,7 @@ export default function SequenceGenerator() {
           // Render QR code to the temporary div
           const qrComponent = <QRCode value={codeValue} size={256} level="M" />;
           // @ts-ignore - Using React DOM to render
-          ReactDOM.render(qrComponent, qrElement);
+          createRoot(qrElement).render(qrComponent);
           
           // Get the rendered SVG and convert to string
           const renderedSvg = qrElement.querySelector('svg');
