@@ -37,10 +37,16 @@ export default function BulkSequenceGenerator() {
   const [tileRows, setTileRows] = useState<number>(10);
   const [tileSpacing, setTileSpacing] = useState<number>(5);
   const [tileSpacingUnit, setTileSpacingUnit] = useState<'mm' | 'cm'>('mm');
-  const [codeSizeMM, setCodeSizeMM] = useState<number>(20); // Size of each code in mm
   const [addOutline, setAddOutline] = useState<boolean>(false); // Option to add border
   const [displayGridWidth, setDisplayGridWidth] = useState<string>("0");
   const [displayGridHeight, setDisplayGridHeight] = useState<string>("0");
+
+  // Add state for preview code images
+  const [previewCodeImages, setPreviewCodeImages] = useState<(string | null)[]>([]);
+
+  // Add state for preview container dimensions
+  const [previewWidthPx, setPreviewWidthPx] = useState<number>(210); // Default A4 Portrait approx
+  const [previewHeightPx, setPreviewHeightPx] = useState<number>(297); // Default A4 Portrait approx
 
   // Add a state variable for barcode height
   const [barcodeHeight, setBarcodeHeight] = useState<number>(4); // Default to 4
@@ -59,16 +65,46 @@ export default function BulkSequenceGenerator() {
     { value: "pharmacode", label: "Pharmacode" },
   ];
 
-  // Add a function to convert barcode height to pixels
-  const convertHeightToPixels = (height: number, unit: 'px' | 'cm' | 'mm'): number => {
-    switch (unit) {
-      case 'cm':
-        return height * 37.7953; // 1 cm = 37.7953 px
-      case 'mm':
-        return height * 3.77953; // 1 mm = 3.77953 px
-      default:
-        return height;
+  // Conversion Factors
+  const PX_PER_CM = 37.7953;
+  const PX_PER_MM = 3.77953;
+
+  // Generalized unit conversion function
+  const convertUnits = (value: number, fromUnit: string, toUnit: string): number => {
+    if (fromUnit === toUnit) return value;
+
+    let valueInPx: number;
+
+    // Convert input value to pixels first
+    switch (fromUnit) {
+      case 'cm': valueInPx = value * PX_PER_CM; break;
+      case 'mm': valueInPx = value * PX_PER_MM; break;
+      case 'px': 
+      default:   valueInPx = value; break;
     }
+
+    // Convert from pixels to the target unit
+    let convertedValue: number;
+    switch (toUnit) {
+      case 'cm': convertedValue = valueInPx / PX_PER_CM; break;
+      case 'mm': convertedValue = valueInPx / PX_PER_MM; break;
+      case 'px': 
+      default:   convertedValue = valueInPx; break;
+    }
+    
+    // Round to reasonable precision (e.g., 1 decimal for cm/mm, 0 for px)
+    return Number(convertedValue.toFixed(toUnit === 'px' ? 0 : 1));
+  };
+
+  // Handler for unit change - converts the current height value
+  const handleUnitChange = (newUnit: 'px' | 'cm' | 'mm') => {
+    const currentHeight = barcodeHeight; // Get value from state
+    const currentUnit = barcodeHeightUnit; // Get unit from state
+    
+    const newHeightValue = convertUnits(currentHeight, currentUnit, newUnit);
+    
+    setBarcodeHeight(newHeightValue);
+    setBarcodeHeightUnit(newUnit);
   };
 
   const generateSequence = () => {
@@ -119,7 +155,8 @@ export default function BulkSequenceGenerator() {
             if (format === "qrcode") {
               await qrcode.toCanvas(canvas, code, { width: 256, margin: 1 });
             } else {
-              JsBarcode(canvas, code, { format: barcodeType, width: 2, height: convertHeightToPixels(barcodeHeight, barcodeHeightUnit), displayValue: true, lineColor: "#000000", background: "#FFFFFF" });
+              // Use convertUnits to get pixel height for JsBarcode
+              JsBarcode(canvas, code, { format: barcodeType, width: 2, height: convertUnits(barcodeHeight, barcodeHeightUnit, 'px'), displayValue: true, lineColor: "#000000", background: "#FFFFFF" });
             }
             const dataUrl = canvas.toDataURL("image/png").split(',')[1];
             
@@ -199,7 +236,8 @@ export default function BulkSequenceGenerator() {
                 if (format === "qrcode") {
                   await qrcode.toCanvas(canvas, code, { width: 256, margin: 1 });
                 } else {
-                  JsBarcode(canvas, code, { format: barcodeType, width: 2, height: convertHeightToPixels(barcodeHeight, barcodeHeightUnit), displayValue: true, lineColor: "#000000", background: "#FFFFFF" });
+                  // Use convertUnits to get pixel height for JsBarcode
+                  JsBarcode(canvas, code, { format: barcodeType, width: 2, height: convertUnits(barcodeHeight, barcodeHeightUnit, 'px'), displayValue: true, lineColor: "#000000", background: "#FFFFFF" });
                 }
                 const dataUrl = canvas.toDataURL("image/png");
                 
@@ -237,15 +275,51 @@ export default function BulkSequenceGenerator() {
         const spacingVal = tileSpacingUnit === 'cm' ? tileSpacing * 10 : tileSpacing; // mm - Space between codes
         const outlineWidth = 0.05; // mm - Thinner border
         const codePadding = 1.5; // mm - Padding inside the border around the code+text
-        const codeFontSize = 5; // pt - Smaller font size for text
-        const textHeightApproximation = 1.5; // mm - Approximate height of the text line
+        const initialCodeFontSize = 5; // pt - Starting font size for text
+        const minCodeFontSize = 2; // pt - Minimum font size
         const textImageSpacing = 0.5; // mm - Space between image bottom and text top
-        
-        // Total size allocated for one code tile (including internal padding and space for text)
-        const tileWidthMM = codeSizeMM;
-        const tileHeightMM = codeSizeMM + textImageSpacing + textHeightApproximation + codePadding * 2; // Height includes code, text, and padding
+        const textSideMarginMM = 0.5; // mm - Small margin so text doesn't touch image edges
+        const PT_TO_MM = 0.352778; // Conversion factor
 
-        // Calculate exact grid dimensions based on tile size and spacing
+        // --- Fixed Tile Width & Calculate Image Area --- 
+        const tileWidthMM = 40; 
+        const imageMaxWidthMM = tileWidthMM - (codePadding * 2);
+        const textMaxWidthMM = imageMaxWidthMM - (textSideMarginMM * 2);
+        
+        // --- Calculate Code Aspect Ratio & Image Height --- 
+        let imageAspectRatio = 1.0; // Default for QR code
+        if (format === 'barcode') {
+          try {
+            const sampleCanvas = document.createElement('canvas');
+            // Generate barcode with standard width=2 to get ratio
+            JsBarcode(sampleCanvas, codes[0] || '1234', { format: barcodeType, width: 2, height: 100, displayValue: false }); 
+            if (sampleCanvas.width > 0) {
+                imageAspectRatio = sampleCanvas.height / sampleCanvas.width;
+            }
+          } catch (e) { console.error("Could not measure barcode ratio", e); }
+        }
+        const imageMaxHeightMM = imageMaxWidthMM * imageAspectRatio; // Height constrained by width and ratio
+
+        // --- Fit Text Font Size --- 
+        const longestCode = codes.reduce((a, b) => a.length > b.length ? a : b, "");
+        let currentFontSize = initialCodeFontSize;
+        const tempPdf = new jsPDF(); // Temporary instance for text measurement
+        tempPdf.setFontSize(currentFontSize);
+        let textWidthMM = tempPdf.getTextWidth(longestCode) * PT_TO_MM;
+
+        while (textWidthMM > textMaxWidthMM && currentFontSize > minCodeFontSize) {
+          currentFontSize -= 0.5; // Decrease font size
+          tempPdf.setFontSize(currentFontSize);
+          textWidthMM = tempPdf.getTextWidth(longestCode) * PT_TO_MM;
+        }
+        const finalCodeFontSize = Math.max(minCodeFontSize, currentFontSize); // Ensure minimum
+        const finalFontHeightMM = finalCodeFontSize * PT_TO_MM * 1.2; // Approximate height based on font size (factor might need tweaking)
+        
+        // --- Calculate Final Tile Height --- 
+        const tileHeightMM = imageMaxHeightMM + textImageSpacing + finalFontHeightMM + (codePadding * 2);
+        // --- End Dimension Calculations --- 
+
+        // Calculate exact grid dimensions based on FINAL tile size and spacing
         const gridWidthMM = (tileColumns * tileWidthMM) + (Math.max(0, tileColumns - 1) * spacingVal);
         const gridHeightMM = (tileRows * tileHeightMM) + (Math.max(0, tileRows - 1) * spacingVal);
         
@@ -253,13 +327,14 @@ export default function BulkSequenceGenerator() {
         const pdfPageWidth = gridWidthMM + margin * 2;
         const pdfPageHeight = gridHeightMM + margin * 2;
 
-        console.log(`PDF Tiling: Tile ${tileWidthMM.toFixed(1)}x${tileHeightMM.toFixed(1)}mm, Grid ${gridWidthMM.toFixed(1)}x${gridHeightMM.toFixed(1)}mm -> Page ${pdfPageWidth.toFixed(1)}x${pdfPageHeight.toFixed(1)}mm`);
+        console.log(`PDF Tiling: Tile ${tileWidthMM}x${tileHeightMM.toFixed(1)}mm, Img ${imageMaxWidthMM.toFixed(1)}x${imageMaxHeightMM.toFixed(1)}mm (Ratio: ${imageAspectRatio.toFixed(2)}), Font ${finalCodeFontSize.toFixed(1)}pt, Page ${pdfPageWidth.toFixed(1)}x${pdfPageHeight.toFixed(1)}mm`);
         
         const pdf = new jsPDF({ 
           orientation: 'p', 
           unit: 'mm', 
           format: [pdfPageWidth, pdfPageHeight] 
         }); 
+        pdf.setFont('helvetica', 'normal'); // Set a standard font
         
         const codesPerPage = tileColumns * tileRows;
         const totalPages = Math.ceil(codes.length / codesPerPage);
@@ -268,6 +343,7 @@ export default function BulkSequenceGenerator() {
         for (let page = 0; page < totalPages; page++) {
           if (page > 0) {
             pdf.addPage([pdfPageWidth, pdfPageHeight], 'p'); 
+            pdf.setFont('helvetica', 'normal'); // Re-apply font settings on new page
           }
           
           for (let r = 0; r < tileRows; r++) {
@@ -276,50 +352,58 @@ export default function BulkSequenceGenerator() {
               
               const code = codes[codeIndex];
               
-              // Calculate top-left corner for the entire tile (including padding/text area)
+              // Calculate top-left corner for the entire tile
               const tileXPos = margin + c * (tileWidthMM + spacingVal);
               const tileYPos = margin + r * (tileHeightMM + spacingVal);
               
-              // Calculate position and size for the code image itself inside the padding
+              // Calculate position for the image placement inside the padding
               const imageXPos = tileXPos + codePadding;
               const imageYPos = tileYPos + codePadding;
-              const imageWidthMM = tileWidthMM - (codePadding * 2);
-              const imageHeightMM = codeSizeMM - (codePadding * 2); // Base image size calculation on codeSizeMM setting
-
+              
+              // Use calculated dimensions for placing image 
+              const finalImageWidthMM = imageMaxWidthMM;
+              const finalImageHeightMM = imageMaxHeightMM;
+              
               // Calculate position for the text
               const textXPos = tileXPos + tileWidthMM / 2; // Center text horizontally within the tile
-              const textYPos = imageYPos + imageHeightMM + textImageSpacing + (textHeightApproximation / 2); // Place below image with spacing
+              const textYPos = imageYPos + finalImageHeightMM + textImageSpacing + (finalFontHeightMM * 0.8); // Position baseline correctly
               
               const canvas = document.createElement("canvas");
               try {
                 // Generate image data
+                let dataUrl: string;
                 if (format === "qrcode") {
-                  const qrCanvasSize = Math.max(64, imageWidthMM * 4); // Scale canvas based on required output size
+                  const qrCanvasSize = 256; // Generate at a reasonable fixed size
                   await qrcode.toCanvas(canvas, code, { width: qrCanvasSize, margin: 1 });
+                  dataUrl = canvas.toDataURL("image/png");
+                  // Add QR code image, scaling it
+                  pdf.addImage(dataUrl, 'PNG', imageXPos, imageYPos, finalImageWidthMM, finalImageHeightMM); 
                 } else {
+                  // Generate barcode with enough pixels for quality, height based on aspect ratio
+                  const barcodeCanvasWidthPx = 500; // Generate wider for better quality before scaling
+                  const barcodeCanvasHeightPx = barcodeCanvasWidthPx * imageAspectRatio; 
                   JsBarcode(canvas, code, { 
                     format: barcodeType, 
                     width: 2, 
-                    height: Math.max(20, imageHeightMM * 3), // Scale height based on available image space 
+                    height: barcodeCanvasHeightPx, 
                     displayValue: false,
-                    margin: 2, // Smaller margin within barcode itself
+                    margin: 5, // Add some margin in generation for safety
                     lineColor: "#000000", 
                     background: "#FFFFFF" 
                   });
+                  dataUrl = canvas.toDataURL("image/png");
+                  // Add barcode image, scaling it into the calculated image box
+                  pdf.addImage(dataUrl, 'PNG', imageXPos, imageYPos, finalImageWidthMM, finalImageHeightMM);
                 }
-                const dataUrl = canvas.toDataURL("image/png");
                 
-                // Add image to PDF
-                pdf.addImage(dataUrl, 'PNG', imageXPos, imageYPos, imageWidthMM, imageHeightMM);
-
-                // Add the code text below the image, centered within the tile width
-                pdf.setFontSize(codeFontSize);
-                pdf.text(code, textXPos, textYPos, { align: 'center' });
+                // Add the code text below the image, centered, using calculated font size
+                pdf.setFontSize(finalCodeFontSize);
+                pdf.text(code, textXPos, textYPos, { align: 'center', maxWidth: textMaxWidthMM });
                 
-                // Add outline border around the entire tile (image + text area + padding) if requested
+                // Add outline border around the entire tile if requested
                 if (addOutline) {
                    pdf.setLineWidth(outlineWidth);
-                   pdf.rect(tileXPos, tileYPos, tileWidthMM, tileHeightMM); // Use tile dimensions for rect
+                   pdf.rect(tileXPos, tileYPos, tileWidthMM, tileHeightMM); 
                 }
 
               } catch (imgErr) {
@@ -355,19 +439,88 @@ export default function BulkSequenceGenerator() {
     }
   };
 
+  // Effect to regenerate preview images when settings change
+  useEffect(() => {
+    const generatePreviewImages = async () => {
+      const numPreviewCodes = Math.min(count, tileColumns * tileRows);
+      if (numPreviewCodes <= 0) {
+        setPreviewCodeImages([]);
+        return;
+      }
+
+      const codesToPreview = generateSequence().slice(0, numPreviewCodes);
+      const imageDataUrls: (string | null)[] = [];
+
+      for (const code of codesToPreview) {
+        const canvas = document.createElement("canvas");
+        try {
+          if (format === "qrcode") {
+            // Use a smaller fixed size for QR preview for performance
+            await qrcode.toCanvas(canvas, code, { width: 64, margin: 1 });
+          } else {
+            // Use smaller fixed dimensions for barcode preview
+            JsBarcode(canvas, code, { 
+              format: barcodeType, 
+              width: 1, // Smaller width for preview
+              height: 30, // Smaller fixed height for preview
+              displayValue: false, // Don't show text in preview image
+              margin: 2
+            });
+          }
+          imageDataUrls.push(canvas.toDataURL("image/png"));
+        } catch (error) {
+          console.error("Error generating preview code:", error);
+          imageDataUrls.push(null); // Indicate error for this code
+        }
+      }
+      setPreviewCodeImages(imageDataUrls);
+    };
+
+    // Only run if pdf-tile output is selected
+    if (outputType === 'pdf-tile') {
+      generatePreviewImages();
+    }
+
+  }, [ prefix, suffix, startNumber, increment, padding, count, format, barcodeType, tileColumns, tileRows, outputType /* dependencies for preview */ ]);
+
   // Effect to calculate and display estimated grid size for tiling
   useEffect(() => {
     if (outputType === 'pdf-tile') {
       const spacingVal = tileSpacingUnit === 'cm' ? tileSpacing * 10 : tileSpacing;
-      const width = (tileColumns * codeSizeMM) + (Math.max(0, tileColumns - 1) * spacingVal);
-      const height = (tileRows * codeSizeMM) + (Math.max(0, tileRows - 1) * spacingVal);
+      // Use fixed tile width for grid calculation
+      const fixedTileWidthMM = 40;
+      const width = (tileColumns * fixedTileWidthMM) + (Math.max(0, tileColumns - 1) * spacingVal);
+      
+      // Recalculate tile height here for display based on current settings
+      const codePadding = 1.5; 
+      const textHeightApproximation = 1.5; // Use approximation for display
+      const textImageSpacing = 0.5;
+      const imageMaxWidthMM = fixedTileWidthMM - (codePadding * 2);
+      let imageAspectRatio = 1.0;
+      if (format === 'barcode') { 
+         try { // Quick ratio check for display
+            const sampleCanvas = document.createElement('canvas');
+            JsBarcode(sampleCanvas, '1234', { format: barcodeType, width: 2, height: 100, displayValue: false }); 
+            if (sampleCanvas.width > 0) imageAspectRatio = sampleCanvas.height / sampleCanvas.width;
+          } catch (e) { /* Ignore error for display */ }
+      }
+      const imageMaxHeightMM = imageMaxWidthMM * imageAspectRatio;
+      const calculatedTileHeightMM = imageMaxHeightMM + textImageSpacing + textHeightApproximation + (codePadding * 2); 
+      
+      const height = (tileRows * calculatedTileHeightMM) + (Math.max(0, tileRows - 1) * spacingVal);
+      
       setDisplayGridWidth(width.toFixed(1));
       setDisplayGridHeight(height.toFixed(1));
     } else {
       setDisplayGridWidth("0");
       setDisplayGridHeight("0");
     }
-  }, [outputType, tileColumns, tileRows, codeSizeMM, tileSpacing, tileSpacingUnit]);
+    // Dependencies for grid display calculation
+  }, [outputType, tileColumns, tileRows, tileSpacing, tileSpacingUnit, format, barcodeType]); 
+
+  // Effect to calculate preview container dimensions - NOT needed for pdf-tile anymore
+  // useEffect(() => { ... }, [paperSize, orientation, customWidth, customHeight]); 
+  // We can use a fixed reasonable size for the preview container in pdf-tile mode
 
   return (
     <div className="w-full mx-auto bg-white rounded-lg shadow-md">
@@ -433,10 +586,11 @@ export default function BulkSequenceGenerator() {
               </div>
             )}
 
-            {format === "barcode" && (
+            {/* Barcode Height - Hidden for pdf-tile output */}
+            {format === "barcode" && outputType !== 'pdf-tile' && (
               <div className="mb-4">
                 <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="barcode-height">
-                  Barcode Height (px)
+                  Barcode Height
                 </label>
                 <input
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
@@ -450,7 +604,8 @@ export default function BulkSequenceGenerator() {
               </div>
             )}
 
-            {format === "barcode" && (
+            {/* Barcode Height Unit - Hidden for pdf-tile output */}
+            {format === "barcode" && outputType !== 'pdf-tile' && (
               <div className="mb-4">
                 <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="barcode-height-unit">
                   Barcode Height Unit
@@ -459,7 +614,7 @@ export default function BulkSequenceGenerator() {
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
                   id="barcode-height-unit"
                   value={barcodeHeightUnit}
-                  onChange={(e) => setBarcodeHeightUnit(e.target.value as 'px' | 'cm' | 'mm')}
+                  onChange={(e) => handleUnitChange(e.target.value as 'px' | 'cm' | 'mm')}
                   disabled={isGenerating}
                 >
                   <option value="px">Pixels (px)</option>
@@ -672,52 +827,143 @@ export default function BulkSequenceGenerator() {
               </div>
             )}
 
-            {/* PDF Tiling Options - Conditionally render if outputType is pdf-tile */}
+            {/* PDF Tiling Options */}
             {outputType === 'pdf-tile' && (
-              <div className="space-y-4 p-4 border border-zinc-300 rounded-lg bg-zinc-100">
-                 <h3 className="text-lg font-medium text-gray-800 mb-3">PDF Tile Layout Options</h3>
-                  <div className="text-sm text-gray-600 bg-blue-50 p-3 rounded-md border border-blue-200">
-                    Estimated Grid Size: {displayGridWidth}mm W x {displayGridHeight}mm H (excluding margins)
+              <div className="mt-6 p-4 border border-gray-200 rounded-md bg-gray-50">
+                <h4 className="text-lg font-medium mb-4 text-gray-800">PDF Tiling Options (Fixed Tile Size: 40x15mm)</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Columns Input */}
+                  <div>
+                    <label htmlFor="tile-columns" className="block text-sm font-medium text-gray-700">Columns (Horizontal)</label>
+                    {/* Input for tileColumns */}
+                     <input
+                      id="tile-columns"
+                      type="number"
+                      min="1"
+                      value={tileColumns}
+                      onChange={(e) => setTileColumns(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary"
+                      disabled={isGenerating}
+                    />
                   </div>
-                 {/* Code Size */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-gray-700 text-sm font-bold mb-1" htmlFor="code-size">Code Size (mm)</label>
-                      <input id="code-size" type="number" min="5" value={codeSizeMM} onChange={e => setCodeSizeMM(Number(e.target.value))} disabled={isGenerating} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary" />
-                    </div>
-                    <div>
-                      <label className="block text-gray-700 text-sm font-bold mb-1">Outline Border</label>
-                       <label className="inline-flex items-center mt-2">
-                         <input type="checkbox" className="form-checkbox h-5 w-5 text-primary" checked={addOutline} onChange={e => setAddOutline(e.target.checked)} disabled={isGenerating} />
-                         <span className="ml-2 text-sm text-gray-700">Add black border around each code</span>
-                       </label>
+                  {/* Rows Input */}
+                  <div>
+                    <label htmlFor="tile-rows" className="block text-sm font-medium text-gray-700">Rows (Vertical)</label>
+                    {/* Input for tileRows */}
+                    <input
+                      id="tile-rows"
+                      type="number"
+                      min="1"
+                      value={tileRows}
+                      onChange={(e) => setTileRows(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary"
+                      disabled={isGenerating}
+                    />
+                  </div>
+                   {/* Tile Width Input - REMOVED for pdf-tile */}
+                  {/* <div> ... </div> */}
+                   
+                  {/* Spacing Input */}
+                  <div>
+                    <label htmlFor="tile-spacing" className="block text-sm font-medium text-gray-700">Spacing</label>
+                    {/* Spacing Input and Unit Select */}
+                     <div className="flex items-center space-x-2 mt-1">
+                       <input
+                        id="tile-spacing"
+                        type="number"
+                        min="0"
+                        value={tileSpacing}
+                        onChange={(e) => setTileSpacing(Math.max(0, parseFloat(e.target.value) || 0))}
+                        className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary"
+                        disabled={isGenerating}
+                      />
+                      <select
+                        value={tileSpacingUnit}
+                        onChange={(e) => setTileSpacingUnit(e.target.value as 'mm' | 'cm')}
+                        className="px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary"
+                        disabled={isGenerating}
+                      >
+                        <option value="mm">mm</option>
+                        <option value="cm">cm</option>
+                      </select>
                     </div>
                   </div>
-                 {/* Columns and Rows */} 
-                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                   <div>
-                     <label className="block text-gray-700 text-sm font-bold mb-1" htmlFor="tile-columns">Columns</label>
-                     <input id="tile-columns" type="number" min="1" value={tileColumns} onChange={e => setTileColumns(Number(e.target.value))} disabled={isGenerating} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary" />
+                  {/* Add Outline Checkbox */}
+                   <div className="md:col-span-2 flex items-center">
+                     {/* Checkbox for addOutline */}
+                      <input
+                       id="add-outline"
+                       type="checkbox"
+                       checked={addOutline}
+                       onChange={(e) => setAddOutline(e.target.checked)}
+                       className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded mr-2"
+                       disabled={isGenerating}
+                     />
+                     <label htmlFor="add-outline" className="text-sm font-medium text-gray-700">Add Border Outline to Each Code</label>
                    </div>
-                   <div>
-                     <label className="block text-gray-700 text-sm font-bold mb-1" htmlFor="tile-rows">Rows per Page</label>
-                     <input id="tile-rows" type="number" min="1" value={tileRows} onChange={e => setTileRows(Number(e.target.value))} disabled={isGenerating} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary" />
-                   </div>
+                </div>
+                
+                 {/* Estimated Grid Size Display */}
+                 <div className="mt-4 text-sm text-gray-600 bg-blue-50 p-3 rounded-md border border-blue-200">
+                   Calculated Page Grid Size (excl. 10mm margins): {displayGridWidth}mm W x {displayGridHeight}mm H
                  </div>
-                 {/* Spacing */} 
-                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                   <div>
-                     <label className="block text-gray-700 text-sm font-bold mb-1" htmlFor="tile-spacing">Spacing</label>
-                     <input id="tile-spacing" type="number" min="0" value={tileSpacing} onChange={e => setTileSpacing(Number(e.target.value))} disabled={isGenerating} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary" />
+
+                {/* ------ Preview Section ------ */}
+                <div className="mt-6 border-t pt-4">
+                   <h5 className="text-md font-medium mb-3 text-gray-700">Layout Preview (Single Page)</h5>
+                   <div
+                     className="mx-auto border border-dashed border-gray-400 bg-white p-1 overflow-hidden relative"
+                     style={{
+                       // Use fixed reasonable size for tile preview container
+                       width: `210px`, 
+                       height: `297px`, 
+                     }}
+                   >
+                     {/* Grid overlay - use absolute positioning to fill the container */}
+                     <div
+                       className="absolute inset-0 grid"
+                       style={{
+                         gridTemplateColumns: `repeat(${tileColumns}, minmax(0, 1fr))`,
+                         gridTemplateRows: `repeat(${tileRows}, minmax(0, 1fr))`,
+                         gap: '1px', // Smaller gap for preview
+                       }}
+                     >
+                       {/* Generate cells with actual code previews */}
+                        {Array.from({ length: tileColumns * tileRows }).map((_, index) => {
+                         const imageUrl = previewCodeImages[index];
+                         const showCode = index < count; // Only show if index is within requested count
+
+                         return (
+                           <div
+                             key={index}
+                             className="border border-gray-200 bg-gray-50 flex items-center justify-center overflow-hidden p-0.5"
+                           >
+                             {showCode ? (
+                               imageUrl ? (
+                                 <img 
+                                   src={imageUrl} 
+                                   alt={`Code Preview ${index + 1}`}
+                                   className="max-w-full max-h-full object-contain"
+                                 />
+                               ) : (
+                                 // Placeholder for error or loading state
+                                 <span className="text-red-500 text-xs">Error</span>
+                               )
+                             ) : (
+                               // Placeholder for cells beyond the count
+                               <div className="w-full h-full bg-gray-200"></div>
+                             )}
+                           </div>
+                         );
+                       })}
+                     </div>
                    </div>
-                   <div>
-                     <label className="block text-gray-700 text-sm font-bold mb-1" htmlFor="tile-spacing-unit">Unit</label>
-                     <select id="tile-spacing-unit" value={tileSpacingUnit} onChange={e => setTileSpacingUnit(e.target.value as 'mm' | 'cm')} disabled={isGenerating} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary">
-                       <option value="mm">mm</option>
-                       <option value="cm">cm</option>
-                     </select>
-                   </div>
+                   <p className="text-center text-sm text-gray-600 mt-2">
+                     Codes per page: <span className="font-semibold">{tileColumns * tileRows}</span>
+                   </p>
                  </div>
+                {/* ------ End Preview Section ------ */}
+
               </div>
             )}
 
