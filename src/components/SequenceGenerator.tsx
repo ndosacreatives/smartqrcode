@@ -7,7 +7,7 @@ import JsBarcode from "jsbarcode";
 import { createRoot } from 'react-dom/client';
 import jsPDF from 'jspdf';
 
-type ImageFormat = 'png' | 'svg' | 'jpg' | 'eps' | 'pdf';
+type ImageFormat = 'png' | 'svg' | 'jpg' | 'eps' | 'pdf' | 'pdf-tile';
 
 export default function SequenceGenerator() {
   const [prefix, setPrefix] = useState<string>("");
@@ -22,6 +22,12 @@ export default function SequenceGenerator() {
   const [generatedCodes, setGeneratedCodes] = useState<string[]>([]);
   const [imageFormat, setImageFormat] = useState<ImageFormat>('png');
   
+  // Tiling State (for PDF Tile download)
+  const [tileColumns, setTileColumns] = useState<number>(5);
+  const [tileRows, setTileRows] = useState<number>(10);
+  const [tileSpacing, setTileSpacing] = useState<number>(5);
+  const [tileSpacingUnit, setTileSpacingUnit] = useState<'mm' | 'cm'>('mm');
+
   const qrCodeRef = useRef<HTMLDivElement>(null);
   const barcodeCanvasRef = useRef<HTMLCanvasElement>(null);
   
@@ -41,7 +47,8 @@ export default function SequenceGenerator() {
     { value: 'svg', label: 'SVG' },
     { value: 'jpg', label: 'JPG' },
     { value: 'eps', label: 'EPS' },
-    { value: 'pdf', label: 'PDF' },
+    { value: 'pdf', label: 'PDF (Single)' },
+    { value: 'pdf-tile', label: 'PDF (Tile Sheet)' }
   ];
   
   // Generate preview whenever input values change
@@ -151,6 +158,52 @@ export default function SequenceGenerator() {
         
         pdf.addImage(imageDataUrl, 'PNG', xPos, yPos, imgWidth, imgHeight);
         pdf.save(`${downloadFileName}.pdf`);
+
+      } else if (imageFormat === 'pdf-tile') {
+        if (!imageDataUrl) {
+          alert("Cannot generate PDF Tile from SVG directly yet. Please choose PNG or JPG as base.");
+          return;
+        }
+        const pdf = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' }); // Default to A4 for tiles
+        const pdfWidth = pdf.internal.pageSize.getWidth();
+        const pdfHeight = pdf.internal.pageSize.getHeight();
+        const margin = 10; // Default margin
+        const spacingVal = tileSpacingUnit === 'cm' ? tileSpacing * 10 : tileSpacing; // Convert cm to mm
+        
+        const usableWidth = pdfWidth - margin * 2;
+        const usableHeight = pdfHeight - margin * 2;
+        
+        // Calculate code size based on columns/rows and spacing
+        const cellWidth = (usableWidth - (tileColumns - 1) * spacingVal) / tileColumns;
+        const cellHeight = (usableHeight - (tileRows - 1) * spacingVal) / tileRows;
+        
+        // Use canvas aspect ratio to determine code dimensions within cell
+        const canvasRatio = canvas.width / canvas.height;
+        let codeWidthMM, codeHeightMM;
+        if ((cellWidth / cellHeight) > canvasRatio) { // Cell is wider than code
+          codeHeightMM = cellHeight;
+          codeWidthMM = cellHeight * canvasRatio;
+        } else { // Cell is taller than code
+          codeWidthMM = cellWidth;
+          codeHeightMM = cellWidth / canvasRatio;
+        }
+
+        // Add the same image multiple times
+        for (let r = 0; r < tileRows; r++) {
+          for (let c = 0; c < tileColumns; c++) {
+            const xPos = margin + c * (cellWidth + spacingVal) + (cellWidth - codeWidthMM) / 2; // Center in cell
+            const yPos = margin + r * (cellHeight + spacingVal) + (cellHeight - codeHeightMM) / 2; // Center in cell
+            
+            // Check bounds before adding image
+            if (xPos + codeWidthMM <= pdfWidth - margin && yPos + codeHeightMM <= pdfHeight - margin) {
+                pdf.addImage(imageDataUrl, 'PNG', xPos, yPos, codeWidthMM, codeHeightMM);
+            } else {
+                console.warn("Skipping image placement: Out of bounds");
+            }
+          }
+        }
+        
+        pdf.save(`${downloadFileName}-tile.pdf`);
 
       } else if (isSvg) {
         const blob = new Blob([svgString], { type: 'image/svg+xml' });
@@ -364,9 +417,40 @@ export default function SequenceGenerator() {
                 <option value="jpg">JPG</option>
                 <option value="svg">SVG</option>
                 <option value="eps">EPS</option>
-                <option value="pdf">PDF</option>
+                <option value="pdf">PDF (Single)</option>
+                <option value="pdf-tile">PDF (Tile Sheet)</option>
               </select>
             </div>
+
+            {/* Tiling Options (Conditional) */}
+            {imageFormat === 'pdf-tile' && (
+              <div className="space-y-4 p-4 border border-zinc-300 rounded-lg bg-zinc-100">
+                <h4 className="text-md font-semibold text-gray-800">PDF Tile Layout</h4>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-gray-700 text-sm font-bold mb-1" htmlFor="tile-cols">Columns</label>
+                    <input id="tile-cols" type="number" min="1" value={tileColumns} onChange={e => setTileColumns(Number(e.target.value))} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary" />
+                  </div>
+                  <div>
+                    <label className="block text-gray-700 text-sm font-bold mb-1" htmlFor="tile-rows">Rows</label>
+                    <input id="tile-rows" type="number" min="1" value={tileRows} onChange={e => setTileRows(Number(e.target.value))} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary" />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                   <div>
+                     <label className="block text-gray-700 text-sm font-bold mb-1" htmlFor="tile-spacing">Spacing</label>
+                     <input id="tile-spacing" type="number" min="0" value={tileSpacing} onChange={e => setTileSpacing(Number(e.target.value))} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary" />
+                   </div>
+                   <div>
+                     <label className="block text-gray-700 text-sm font-bold mb-1" htmlFor="tile-spacing-unit">Unit</label>
+                     <select id="tile-spacing-unit" value={tileSpacingUnit} onChange={e => setTileSpacingUnit(e.target.value as 'mm' | 'cm')} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary">
+                       <option value="mm">mm</option>
+                       <option value="cm">cm</option>
+                     </select>
+                   </div>
+                 </div>
+              </div>
+            )}
             
             <div className="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-4">
               <button
