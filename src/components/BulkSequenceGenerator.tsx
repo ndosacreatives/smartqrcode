@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import * as qrcode from "qrcode";
 import JsBarcode from "jsbarcode";
 import JSZip from "jszip";
@@ -19,7 +19,7 @@ export default function BulkSequenceGenerator() {
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
   const [progress, setProgress] = useState<number>(0);
   const [downloadLink, setDownloadLink] = useState<string>("");
-  const [outputType, setOutputType] = useState<'zip' | 'pdf'>('zip');
+  const [outputType, setOutputType] = useState<'zip' | 'pdf' | 'pdf-tile'>('zip');
 
   // PDF Layout State
   const [paperSize, setPaperSize] = useState<string>('a4'); // a4, a5, a3, custom
@@ -31,6 +31,16 @@ export default function BulkSequenceGenerator() {
   const [marginTop, setMarginTop] = useState<number>(10); // mm
   const [marginLeft, setMarginLeft] = useState<number>(10); // mm
   const [spacing, setSpacing] = useState<number>(5); // mm
+
+  // Tiling State (for PDF Tile download)
+  const [tileColumns, setTileColumns] = useState<number>(4); // Changed default
+  const [tileRows, setTileRows] = useState<number>(10);
+  const [tileSpacing, setTileSpacing] = useState<number>(5);
+  const [tileSpacingUnit, setTileSpacingUnit] = useState<'mm' | 'cm'>('mm');
+  const [codeSizeMM, setCodeSizeMM] = useState<number>(20); // Size of each code in mm
+  const [addOutline, setAddOutline] = useState<boolean>(false); // Option to add border
+  const [displayGridWidth, setDisplayGridWidth] = useState<string>("0");
+  const [displayGridHeight, setDisplayGridHeight] = useState<string>("0");
 
   const barcodeFormats = [
     { value: "CODE128", label: "Code 128 (default)" },
@@ -112,8 +122,8 @@ export default function BulkSequenceGenerator() {
         // const url = URL.createObjectURL(content);
         // setDownloadLink(url);
 
-      } else {
-        // --- PDF Generation Logic --- 
+      } else if (outputType === 'pdf') {
+        // --- PDF Generation Logic (Single code per page - maybe adapt later?) --- 
         let pdfWidth = customWidth;
         let pdfHeight = customHeight;
         let pdfFormat: string | number[] = paperSize; // Local variable for jsPDF format
@@ -205,6 +215,97 @@ export default function BulkSequenceGenerator() {
         }
         
         pdf.save(`${format === "qrcode" ? "qrcodes" : "barcodes"}-layout.pdf`);
+      } else { // outputType === 'pdf-tile'
+        // --- PDF Tiling Logic --- 
+        const pdf = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' }); // Default A4
+        const pdfWidth = pdf.internal.pageSize.getWidth();
+        const pdfHeight = pdf.internal.pageSize.getHeight();
+        const margin = 10; // mm
+        const spacingVal = tileSpacingUnit === 'cm' ? tileSpacing * 10 : tileSpacing; // mm
+        const outlineWidth = 0.1; // mm
+
+        const usableWidth = pdfWidth - margin * 2;
+        const usableHeight = pdfHeight - margin * 2;
+
+        // Calculate cell dimensions based on fixed code size and spacing
+        const cellWidth = codeSizeMM;
+        const cellHeight = codeSizeMM;
+        
+        // Calculate actual columns/rows that fit based on codeSize and spacing
+        const actualColumns = Math.max(1, Math.floor((usableWidth + spacingVal) / (cellWidth + spacingVal)));
+        const actualRows = Math.max(1, Math.floor((usableHeight + spacingVal) / (cellHeight + spacingVal)));
+        
+        const codesPerPage = actualColumns * actualRows;
+        const totalPages = Math.ceil(codes.length / codesPerPage);
+        
+        console.log(`PDF Tiling: Page ${pdfWidth}x${pdfHeight}mm, Usable ${usableWidth.toFixed(1)}x${usableHeight.toFixed(1)}mm, ` +
+                    `Code ${codeSizeMM}mm, Spacing ${spacingVal}mm -> ${actualColumns}x${actualRows} = ${codesPerPage} codes/page, ${totalPages} total pages`);
+
+        let codeIndex = 0;
+        for (let page = 0; page < totalPages; page++) {
+          if (page > 0) {
+            pdf.addPage();
+          }
+          
+          for (let r = 0; r < actualRows; r++) {
+            for (let c = 0; c < actualColumns; c++) {
+              if (codeIndex >= codes.length) break;
+              
+              const code = codes[codeIndex];
+              
+              // Calculate top-left corner for the cell
+              const cellXPos = margin + c * (cellWidth + spacingVal);
+              const cellYPos = margin + r * (cellHeight + spacingVal);
+              
+              const canvas = document.createElement("canvas");
+              try {
+                if (format === "qrcode") {
+                  // Adjust canvas size slightly for QR code to avoid tiny borders if possible
+                  const qrCanvasSize = Math.max(64, codeSizeMM * 4); // Heuristic for pixel size
+                  await qrcode.toCanvas(canvas, code, { width: qrCanvasSize, margin: 1 });
+                } else {
+                  JsBarcode(canvas, code, { 
+                    format: barcodeType, 
+                    width: 2, // Adjust barcode width relative to height?
+                    height: Math.max(20, codeSizeMM * 3), // Heuristic for pixel height
+                    displayValue: false, // Usually hide value on tiled sheets
+                    margin: 5, // Barcode margin
+                    lineColor: "#000000", 
+                    background: "#FFFFFF" 
+                  });
+                }
+                const dataUrl = canvas.toDataURL("image/png");
+                
+                // Add image to PDF
+                pdf.addImage(dataUrl, 'PNG', cellXPos, cellYPos, codeSizeMM, codeSizeMM);
+
+                // Add outline if requested
+                if (addOutline) {
+                   pdf.setLineWidth(outlineWidth);
+                   pdf.rect(cellXPos, cellYPos, codeSizeMM, codeSizeMM);
+                }
+
+              } catch (imgErr) {
+                console.error(`Failed to generate image for code: ${code}`, imgErr);
+                pdf.setFontSize(6);
+                pdf.text(`Error for: ${code}`, cellXPos + 1, cellYPos + codeSizeMM / 2);
+                 if (addOutline) { // Draw outline even on error
+                   pdf.setLineWidth(outlineWidth);
+                   pdf.rect(cellXPos, cellYPos, codeSizeMM, codeSizeMM);
+                }
+              }
+              
+              codeIndex++;
+              
+              const totalProgress = (codeIndex / codes.length) * 100;
+              setProgress(Math.round(totalProgress));
+            }
+            if (codeIndex >= codes.length) break;
+          }
+          await new Promise(resolve => setTimeout(resolve, 0)); 
+        }
+        
+        pdf.save(`${format === "qrcode" ? "qrcodes" : "barcodes"}-tile-layout.pdf`);
       }
 
     } catch (error) {
@@ -214,6 +315,20 @@ export default function BulkSequenceGenerator() {
       setIsGenerating(false);
     }
   };
+
+  // Effect to calculate and display estimated grid size for tiling
+  useEffect(() => {
+    if (outputType === 'pdf-tile') {
+      const spacingVal = tileSpacingUnit === 'cm' ? tileSpacing * 10 : tileSpacing;
+      const width = (tileColumns * codeSizeMM) + (Math.max(0, tileColumns - 1) * spacingVal);
+      const height = (tileRows * codeSizeMM) + (Math.max(0, tileRows - 1) * spacingVal);
+      setDisplayGridWidth(width.toFixed(1));
+      setDisplayGridHeight(height.toFixed(1));
+    } else {
+      setDisplayGridWidth("0");
+      setDisplayGridHeight("0");
+    }
+  }, [outputType, tileColumns, tileRows, codeSizeMM, tileSpacing, tileSpacingUnit]);
 
   return (
     <div className="w-full mx-auto bg-white rounded-lg shadow-md">
@@ -399,6 +514,13 @@ export default function BulkSequenceGenerator() {
                   />
                   <span className="ml-2">PDF (Layout Sheet)</span>
                 </label>
+                <label className="inline-flex items-center">
+                  <input
+                    type="radio" className="form-radio" name="output-type" value="pdf-tile"
+                    checked={outputType === 'pdf-tile'} onChange={() => setOutputType('pdf-tile')} disabled={isGenerating}
+                  />
+                  <span className="ml-2">PDF (Tile Sheet)</span>
+                </label>
               </div>
             </div>
             
@@ -470,6 +592,55 @@ export default function BulkSequenceGenerator() {
                    <div>
                      <label className="block text-gray-700 text-sm font-bold mb-1" htmlFor="spacing">Spacing (mm)</label>
                      <input id="spacing" type="number" min="0" value={spacing} onChange={e => setSpacing(Number(e.target.value))} disabled={isGenerating} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary" />
+                   </div>
+                 </div>
+              </div>
+            )}
+
+            {/* PDF Tiling Options - Conditionally render if outputType is pdf-tile */}
+            {outputType === 'pdf-tile' && (
+              <div className="space-y-4 p-4 border border-zinc-300 rounded-lg bg-zinc-100">
+                 <h3 className="text-lg font-medium text-gray-800 mb-3">PDF Tile Layout Options</h3>
+                  <div className="text-sm text-gray-600 bg-blue-50 p-3 rounded-md border border-blue-200">
+                    Estimated Grid Size: {displayGridWidth}mm W x {displayGridHeight}mm H (excluding margins)
+                  </div>
+                 {/* Code Size */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-gray-700 text-sm font-bold mb-1" htmlFor="code-size">Code Size (mm)</label>
+                      <input id="code-size" type="number" min="5" value={codeSizeMM} onChange={e => setCodeSizeMM(Number(e.target.value))} disabled={isGenerating} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary" />
+                    </div>
+                    <div>
+                      <label className="block text-gray-700 text-sm font-bold mb-1">Outline Border</label>
+                       <label className="inline-flex items-center mt-2">
+                         <input type="checkbox" className="form-checkbox h-5 w-5 text-primary" checked={addOutline} onChange={e => setAddOutline(e.target.checked)} disabled={isGenerating} />
+                         <span className="ml-2 text-sm text-gray-700">Add black border around each code</span>
+                       </label>
+                    </div>
+                  </div>
+                 {/* Columns and Rows */} 
+                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                   <div>
+                     <label className="block text-gray-700 text-sm font-bold mb-1" htmlFor="tile-columns">Columns</label>
+                     <input id="tile-columns" type="number" min="1" value={tileColumns} onChange={e => setTileColumns(Number(e.target.value))} disabled={isGenerating} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary" />
+                   </div>
+                   <div>
+                     <label className="block text-gray-700 text-sm font-bold mb-1" htmlFor="tile-rows">Rows per Page</label>
+                     <input id="tile-rows" type="number" min="1" value={tileRows} onChange={e => setTileRows(Number(e.target.value))} disabled={isGenerating} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary" />
+                   </div>
+                 </div>
+                 {/* Spacing */} 
+                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                   <div>
+                     <label className="block text-gray-700 text-sm font-bold mb-1" htmlFor="tile-spacing">Spacing</label>
+                     <input id="tile-spacing" type="number" min="0" value={tileSpacing} onChange={e => setTileSpacing(Number(e.target.value))} disabled={isGenerating} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary" />
+                   </div>
+                   <div>
+                     <label className="block text-gray-700 text-sm font-bold mb-1" htmlFor="tile-spacing-unit">Unit</label>
+                     <select id="tile-spacing-unit" value={tileSpacingUnit} onChange={e => setTileSpacingUnit(e.target.value as 'mm' | 'cm')} disabled={isGenerating} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary">
+                       <option value="mm">mm</option>
+                       <option value="cm">cm</option>
+                     </select>
                    </div>
                  </div>
               </div>
