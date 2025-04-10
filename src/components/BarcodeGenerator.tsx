@@ -11,6 +11,7 @@ interface BarcodeGeneratorProps {
 
 export default function BarcodeGenerator({ onDownload }: BarcodeGeneratorProps) {
   const [text, setText] = useState<string>("");
+  const [suffix, setSuffix] = useState<string>("");
   const [barcodeType, setBarcodeType] = useState<string>("CODE128");
   const [width, setWidth] = useState<number>(2);
   const [height, setHeight] = useState<number>(100);
@@ -59,10 +60,11 @@ export default function BarcodeGenerator({ onDownload }: BarcodeGeneratorProps) 
 
   // Generate barcode whenever parameters change
   useEffect(() => {
-    if (text.trim() !== "" && canvasRef.current) {
+    const valueToEncode = text + suffix;
+    if (valueToEncode.trim() !== "" && canvasRef.current) {
       try {
-        if (validateInput(text, barcodeType)) {
-          JsBarcode(canvasRef.current, text, {
+        if (validateInput(valueToEncode, barcodeType)) {
+          JsBarcode(canvasRef.current, valueToEncode, {
             format: barcodeType,
             width,
             height,
@@ -78,10 +80,11 @@ export default function BarcodeGenerator({ onDownload }: BarcodeGeneratorProps) 
         setErrorMessage("Failed to generate barcode. Please check your input.");
       }
     }
-  }, [text, barcodeType, width, height, displayValue, foregroundColor, backgroundColor, marginTop, marginBottom, validateInput]);
+  }, [text, suffix, barcodeType, width, height, displayValue, foregroundColor, backgroundColor, marginTop, marginBottom, validateInput]);
 
   const downloadBarcode = () => {
-    if (!canvasRef.current || text.trim() === "") return;
+    const valueToEncode = text + suffix;
+    if (!canvasRef.current || valueToEncode.trim() === "") return;
     
     try {
       if (imageFormat === 'svg') {
@@ -100,7 +103,7 @@ export default function BarcodeGenerator({ onDownload }: BarcodeGeneratorProps) 
         
         const link = document.createElement("a");
         link.href = url;
-        link.download = `barcode-${barcodeType.toLowerCase()}.svg`;
+        link.download = `barcode-${barcodeType.toLowerCase()}-${valueToEncode}.svg`;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -126,7 +129,7 @@ export default function BarcodeGenerator({ onDownload }: BarcodeGeneratorProps) 
           // Default download behavior
           const link = document.createElement("a");
           link.href = dataUrl;
-          link.download = `barcode-${barcodeType.toLowerCase()}.${fileExtension}`;
+          link.download = `barcode-${barcodeType.toLowerCase()}-${valueToEncode}.${fileExtension}`;
           document.body.appendChild(link);
           link.click();
           document.body.removeChild(link);
@@ -162,6 +165,20 @@ export default function BarcodeGenerator({ onDownload }: BarcodeGeneratorProps) 
             {errorMessage && (
               <p className="mt-1 text-sm text-red-600">{errorMessage}</p>
             )}
+          </div>
+          
+          <div className="bg-zinc-50 p-4 rounded-lg border border-zinc-200">
+            <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="barcode-suffix">
+              Suffix (Optional)
+            </label>
+            <input
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+              id="barcode-suffix"
+              type="text"
+              value={suffix}
+              onChange={(e) => setSuffix(e.target.value)}
+              placeholder="Enter optional suffix"
+            />
           </div>
           
           <div className="bg-zinc-50 p-4 rounded-lg border border-zinc-200">
@@ -332,7 +349,7 @@ export default function BarcodeGenerator({ onDownload }: BarcodeGeneratorProps) 
         <div className="space-y-4">
           <div className="bg-zinc-50 p-4 rounded-lg border border-zinc-200 text-center">
             <h3 className="text-lg font-medium text-gray-800 mb-3">Preview</h3>
-            {text.trim() === "" ? (
+            {(text + suffix).trim() === "" ? (
               <div className="flex items-center justify-center h-32 bg-gray-200 rounded-md text-gray-500">
                 Enter value to preview
               </div>
@@ -344,7 +361,7 @@ export default function BarcodeGenerator({ onDownload }: BarcodeGeneratorProps) 
             )}
           </div>
           <p className="text-sm text-gray-500 mt-4">
-            {text && !errorMessage && `Type: ${barcodeFormats.find(f => f.value === barcodeType)?.label}`}
+            {(text+suffix) && !errorMessage && `Type: ${barcodeFormats.find(f => f.value === barcodeType)?.label}`}
           </p>
         </div>
       </div>

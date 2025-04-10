@@ -13,6 +13,7 @@ export default function SequenceGenerator() {
   const [startNumber, setStartNumber] = useState<number>(1);
   const [increment, setIncrement] = useState<number>(1);
   const [padding, setPadding] = useState<number>(4);
+  const [suffix, setSuffix] = useState<string>("");
   const [count, setCount] = useState<number>(1);
   const [format, setFormat] = useState<"qrcode" | "barcode">("barcode");
   const [barcodeType, setBarcodeType] = useState<string>("CODE128");
@@ -45,7 +46,7 @@ export default function SequenceGenerator() {
   useEffect(() => {
     const generatePreview = () => {
       const paddedNumber = String(startNumber).padStart(padding, '0');
-      const code = `${prefix}${paddedNumber}`;
+      const code = `${prefix}${paddedNumber}${suffix}`;
       setPreviewCode(code);
       
       if (format === "barcode" && barcodeCanvasRef.current) {
@@ -69,7 +70,7 @@ export default function SequenceGenerator() {
     if (prefix !== '' || startNumber > 0) {
       generatePreview();
     }
-  }, [prefix, startNumber, padding, format, barcodeType, barcodeCanvasRef]);
+  }, [prefix, startNumber, padding, format, barcodeType, barcodeCanvasRef, suffix]);
 
   const generateSequence = () => {
     const sequences = [];
@@ -77,7 +78,7 @@ export default function SequenceGenerator() {
     
     for (let i = 0; i < count; i++) {
       const paddedNumber = String(currentNumber).padStart(padding, '0');
-      const code = `${prefix}${paddedNumber}`;
+      const code = `${prefix}${paddedNumber}${suffix}`;
       sequences.push(code);
       currentNumber += increment;
     }
@@ -287,6 +288,20 @@ export default function SequenceGenerator() {
                 value={prefix}
                 onChange={(e) => setPrefix(e.target.value)}
                 placeholder="e.g., PROD-"
+              />
+            </div>
+            
+            <div className="mb-4">
+              <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="suffix">
+                Suffix (Optional)
+              </label>
+              <input
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                id="suffix"
+                type="text"
+                value={suffix}
+                onChange={(e) => setSuffix(e.target.value)}
+                placeholder="e.g., -V1"
               />
             </div>
             

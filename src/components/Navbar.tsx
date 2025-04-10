@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Bars3Icon, XMarkIcon } from '@heroicons/react/24/outline';
@@ -14,6 +14,11 @@ const navigation = [
 export default function Navbar() {
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
   
   const isActive = (path: string) => {
     return pathname === path;
@@ -49,8 +54,8 @@ export default function Navbar() {
           ))}
         </div>
       </nav>
-      {/* Mobile menu, show/hide based on menu state. */}
-      {mobileMenuOpen && (
+      {/* Mobile menu, show/hide based on menu state, only render on client */}
+      {isClient && mobileMenuOpen && (
         <div className="lg:hidden" role="dialog" aria-modal="true">
           <div className="fixed inset-0 z-50" />
           <div className="fixed inset-y-0 right-0 z-50 w-full overflow-y-auto bg-white px-6 py-6 sm:max-w-sm sm:ring-1 sm:ring-gray-900/10">
