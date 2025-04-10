@@ -240,7 +240,7 @@ export default function BarcodeGenerator({ onDownload }: BarcodeGeneratorProps) 
                 Bar Width: {width}
               </label>
               <input
-                className="w-full"
+                className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-primary"
                 id="barcode-width"
                 type="range"
                 min="1"
@@ -255,10 +255,10 @@ export default function BarcodeGenerator({ onDownload }: BarcodeGeneratorProps) 
                 Height: {height}px
               </label>
               <input
-                className="w-full"
+                className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-primary"
                 id="barcode-height"
                 type="range"
-                min="50"
+                min="30"
                 max="200"
                 step="10"
                 value={height}
