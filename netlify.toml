@@ -3,8 +3,8 @@
   publish = ".next"
 
 [build.environment]
-  NODE_VERSION = "18"
-  NEXT_PRIVATE_TARGET = "serverless"
+  NODE_VERSION = "18.16.0"
+  NEXT_PRIVATE_TARGET = "server"
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"

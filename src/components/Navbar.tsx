@@ -6,7 +6,6 @@ import { Bars3Icon, XMarkIcon } from '@heroicons/react/24/outline';
 import { Button } from "@/components/ui/button";
 import { MoonIcon, SunIcon } from "@heroicons/react/24/outline";
 import { useTheme } from "next-themes";
-import { UserButton, SignedIn, SignedOut } from "@clerk/nextjs";
 import { Menu, X } from "lucide-react";
 
 const navigation = [
@@ -23,10 +22,6 @@ export default function Navbar() {
   useEffect(() => {
     setIsClient(true);
   }, []);
-  
-  // const isActive = (path: string) => {
-  //   return pathname === path;
-  // };
   
   const toggleTheme = () => {
     setTheme(theme === "light" ? "dark" : "light");
@@ -61,8 +56,21 @@ export default function Navbar() {
             </Link>
           ))}
         </div>
+        <div className="hidden lg:flex lg:items-center lg:justify-end lg:flex-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={toggleTheme}
+            aria-label="Toggle theme"
+          >
+            {theme === "dark" ? (
+              <SunIcon className="h-5 w-5" />
+            ) : (
+              <MoonIcon className="h-5 w-5" />
+            )}
+          </Button>
+        </div>
       </nav>
-      {/* Mobile menu, show/hide based on menu state, only render on client */}
       {isClient && mobileMenuOpen && (
         <div className="lg:hidden" role="dialog" aria-modal="true">
           <div className="fixed inset-0 z-50" />
@@ -96,6 +104,26 @@ export default function Navbar() {
                       {item.name}
                     </Link>
                   ))}
+                </div>
+                <div className="py-6">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={toggleTheme}
+                    className="flex w-full items-center"
+                  >
+                    {theme === "dark" ? (
+                      <>
+                        <SunIcon className="h-5 w-5 mr-2" />
+                        <span>Light Mode</span>
+                      </>
+                    ) : (
+                      <>
+                        <MoonIcon className="h-5 w-5 mr-2" />
+                        <span>Dark Mode</span>
+                      </>
+                    )}
+                  </Button>
                 </div>
               </div>
             </div>
