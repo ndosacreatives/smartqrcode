@@ -290,7 +290,7 @@ export default function BulkSequenceGenerator() {
             const sampleCanvas = document.createElement('canvas');
             JsBarcode(sampleCanvas, '1234', { format: barcodeType, width: 2, height: 100, displayValue: false }); 
             if (sampleCanvas.width > 0) imageAspectRatio = sampleCanvas.height / sampleCanvas.width;
-          } catch (_e) { /* Ignore error for display, rename unused var */ }
+          } catch {} /* Ignore error for display */
         }
         const imageMaxHeightMM = imageMaxWidthMM * imageAspectRatio; // Height constrained by width and ratio
 
@@ -496,7 +496,7 @@ export default function BulkSequenceGenerator() {
             const sampleCanvas = document.createElement('canvas');
             JsBarcode(sampleCanvas, '1234', { format: barcodeType, width: 2, height: 100, displayValue: false }); 
             if (sampleCanvas.width > 0) imageAspectRatio = sampleCanvas.height / sampleCanvas.width;
-          } catch (_e) { /* Ignore error for display */ }
+          } catch {} /* Ignore error for display */
       }
       const imageMaxHeightMM = imageMaxWidthMM * imageAspectRatio;
       const calculatedTileHeightMM = imageMaxHeightMM + textImageSpacing + textHeightApproximation + (codePadding * 2); 
