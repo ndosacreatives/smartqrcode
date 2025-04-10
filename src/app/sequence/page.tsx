@@ -1,6 +1,5 @@
 import React from "react";
 import SequenceGenerator from "@/components/SequenceGenerator";
-import TabNavigation from "@/components/TabNavigation";
 
 export const metadata = {
   title: "Sequence Generator - Smart QR & Barcode",
@@ -19,7 +18,6 @@ export default function SequencePage() {
         </p>
       </div>
       
-      <TabNavigation />
       <SequenceGenerator />
     </div>
   );
