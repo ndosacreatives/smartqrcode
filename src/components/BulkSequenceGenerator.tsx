@@ -115,15 +115,13 @@ export default function BulkSequenceGenerator() {
           for (let i = 0; i < batch.length; i++) {
             const code = batch[i];
             const index = batchStart + i;
-            let dataUrl;
-            
             const canvas = document.createElement("canvas");
             if (format === "qrcode") {
               await qrcode.toCanvas(canvas, code, { width: 256, margin: 1 });
             } else {
               JsBarcode(canvas, code, { format: barcodeType, width: 2, height: convertHeightToPixels(barcodeHeight, barcodeHeightUnit), displayValue: true, lineColor: "#000000", background: "#FFFFFF" });
             }
-            dataUrl = canvas.toDataURL("image/png").split(',')[1];
+            const dataUrl = canvas.toDataURL("image/png").split(',')[1];
             
             const fileName = `${format === "qrcode" ? "qrcode" : "barcode"}-${index + 1}.png`;
             folder.file(fileName, dataUrl, { base64: true });

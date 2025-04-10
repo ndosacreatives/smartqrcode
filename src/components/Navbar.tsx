@@ -2,8 +2,12 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
 import { Bars3Icon, XMarkIcon } from '@heroicons/react/24/outline';
+import { Button } from "@/components/ui/button";
+import { MoonIcon, SunIcon } from "@heroicons/react/24/outline";
+import { useTheme } from "next-themes";
+import { UserButton, SignedIn, SignedOut } from "@clerk/nextjs";
+import { Menu, X } from "lucide-react";
 
 const navigation = [
   { name: 'Home', href: '/' },
@@ -12,6 +16,7 @@ const navigation = [
 ];
 
 export default function Navbar() {
+  const { theme, setTheme } = useTheme();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isClient, setIsClient] = useState(false);
 
@@ -23,6 +28,10 @@ export default function Navbar() {
   //   return pathname === path;
   // };
   
+  const toggleTheme = () => {
+    setTheme(theme === "light" ? "dark" : "light");
+  };
+
   return (
     <header className="bg-white shadow-sm sticky top-0 z-50">
       <nav className="container mx-auto flex items-center justify-between p-4 lg:px-8" aria-label="Global">
