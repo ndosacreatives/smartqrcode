@@ -2,8 +2,9 @@
 
 import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import JsBarcode from "jsbarcode";
+import jsPDF from 'jspdf';
 
-type ImageFormat = 'png' | 'svg' | 'jpg' | 'eps';
+type ImageFormat = 'png' | 'svg' | 'jpg' | 'eps' | 'pdf';
 
 interface BarcodeGeneratorProps {
   onDownload?: (dataUrl: string) => void;
@@ -42,6 +43,7 @@ export default function BarcodeGenerator({ onDownload }: BarcodeGeneratorProps) 
     { value: 'svg', label: 'SVG' },
     { value: 'jpg', label: 'JPG' },
     { value: 'eps', label: 'EPS' },
+    { value: 'pdf', label: 'PDF' },
   ];
 
   // Validate input based on barcode type
@@ -85,11 +87,33 @@ export default function BarcodeGenerator({ onDownload }: BarcodeGeneratorProps) 
   const downloadBarcode = () => {
     const valueToEncode = text + suffix;
     if (!canvasRef.current || valueToEncode.trim() === "") return;
+    const canvas = canvasRef.current;
     
     try {
-      if (imageFormat === 'svg') {
+      if (imageFormat === 'pdf') {
+        // --- PDF Download Logic --- 
+        const pdf = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
+        const pdfWidth = pdf.internal.pageSize.getWidth();
+        const pdfHeight = pdf.internal.pageSize.getHeight();
+        const margin = 10;
+        const imgData = canvas.toDataURL('image/png');
+        
+        const availableWidth = pdfWidth - margin * 2;
+        const availableHeight = pdfHeight - margin * 2;
+        let imgWidth = canvas.width * 0.264583;
+        let imgHeight = canvas.height * 0.264583;
+        const ratio = Math.min(availableWidth / imgWidth, availableHeight / imgHeight);
+        imgWidth *= ratio;
+        imgHeight *= ratio;
+        
+        const xPos = (pdfWidth - imgWidth) / 2;
+        const yPos = (pdfHeight - imgHeight) / 2;
+        
+        pdf.addImage(imgData, 'PNG', xPos, yPos, imgWidth, imgHeight);
+        pdf.save(`barcode-${barcodeType.toLowerCase()}-${valueToEncode}.pdf`);
+        
+      } else if (imageFormat === 'svg') {
         // Create an SVG from the canvas
-        const canvas = canvasRef.current;
         const imageData = canvas.toDataURL('image/png');
         
         const svgImage = `
@@ -137,6 +161,7 @@ export default function BarcodeGenerator({ onDownload }: BarcodeGeneratorProps) 
       }
     } catch (err) {
       console.error("Error downloading barcode", err);
+      alert("Failed to download barcode.")
     }
   };
 

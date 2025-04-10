@@ -3,8 +3,10 @@
 import React, { useState, useRef, useEffect } from "react";
 import QRCode from "react-qr-code";
 import * as qrcode from "qrcode";
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 
-type ImageFormat = 'png' | 'svg' | 'jpg' | 'eps';
+type ImageFormat = 'png' | 'svg' | 'jpg' | 'eps' | 'pdf';
 
 interface QRCodeGeneratorProps {
   onDownload?: (dataUrl: string) => void;
@@ -62,6 +64,7 @@ export default function QRCodeGenerator({ onDownload }: QRCodeGeneratorProps) {
     { value: 'svg', label: 'SVG' },
     { value: 'jpg', label: 'JPG' },
     { value: 'eps', label: 'EPS' },
+    { value: 'pdf', label: 'PDF' },
   ];
 
   const formFields: Record<QRCodeType, FormField[]> = {
@@ -229,6 +232,101 @@ export default function QRCodeGenerator({ onDownload }: QRCodeGeneratorProps) {
     }
   };
 
+  const downloadQRCode = async () => {
+    if (!qrRef.current || qrValue === "") return;
+
+    const svgElement = qrRef.current.querySelector("svg");
+    if (!svgElement) return;
+
+    // Create a temporary canvas to draw the SVG with background color
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+    canvas.width = size;
+    canvas.height = size;
+
+    if (!ctx) return;
+
+    // Fill background
+    ctx.fillStyle = backgroundColor;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Draw the SVG onto the canvas
+    const svgString = new XMLSerializer().serializeToString(svgElement);
+    const svgBlob = new Blob([svgString], { type: "image/svg+xml;charset=utf-8" });
+    const url = URL.createObjectURL(svgBlob);
+
+    const img = new Image();
+    img.onload = async () => {
+      ctx.drawImage(img, 0, 0, size, size);
+      URL.revokeObjectURL(url);
+
+      let mimeType = 'image/png';
+      let fileExtension = 'png';
+
+      try {
+        if (imageFormat === 'svg') {
+          // Download SVG directly (background color won't be included easily)
+          const link = document.createElement("a");
+          link.href = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgString)}`;
+          link.download = `qrcode-${Date.now()}.svg`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+        } else if (imageFormat === 'pdf') {
+          // --- PDF Download Logic --- 
+          const pdf = new jsPDF({
+            orientation: 'p', // Portrait
+            unit: 'mm',
+            format: 'a4' // Default to A4 for single code
+          });
+          const pdfWidth = pdf.internal.pageSize.getWidth();
+          const pdfHeight = pdf.internal.pageSize.getHeight();
+          const margin = 10; // 10mm margin
+          const imgData = canvas.toDataURL('image/png');
+          
+          // Calculate image dimensions (fit within margins)
+          const availableWidth = pdfWidth - margin * 2;
+          const availableHeight = pdfHeight - margin * 2;
+          let imgWidth = canvas.width * 0.264583; // Convert px to mm (approx)
+          let imgHeight = canvas.height * 0.264583;
+          const ratio = Math.min(availableWidth / imgWidth, availableHeight / imgHeight);
+          imgWidth *= ratio;
+          imgHeight *= ratio;
+          
+          // Center image
+          const xPos = (pdfWidth - imgWidth) / 2;
+          const yPos = (pdfHeight - imgHeight) / 2;
+          
+          pdf.addImage(imgData, 'PNG', xPos, yPos, imgWidth, imgHeight);
+          pdf.save(`qrcode-${Date.now()}.pdf`);
+
+        } else {
+          // PNG, JPG
+          if (imageFormat === 'jpg') {
+            mimeType = 'image/jpeg';
+            fileExtension = 'jpg';
+          }
+          const dataUrl = canvas.toDataURL(mimeType);
+          const link = document.createElement("a");
+          link.href = dataUrl;
+          link.download = `qrcode-${Date.now()}.${fileExtension}`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+        }
+      } catch (err) {
+        console.error("Error downloading QR code", err);
+        alert("Failed to download QR code.")
+      }
+    };
+    img.onerror = (err) => {
+      console.error("Error loading SVG image for canvas drawing", err);
+      URL.revokeObjectURL(url);
+      alert("Failed to prepare QR code for download.")
+    };
+    img.src = url;
+  };
+
   // Check if the form has required values filled
   const isFormValid = () => {
     const activeFields = formFields[qrType];
@@ -363,21 +461,18 @@ export default function QRCodeGenerator({ onDownload }: QRCodeGeneratorProps) {
             <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="image-format">
               Download Format
             </label>
-            <div className="flex flex-wrap gap-3">
+            <select
+              id="image-format"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+              value={imageFormat}
+              onChange={(e) => setImageFormat(e.target.value as ImageFormat)}
+            >
               {imageFormats.map((format) => (
-                <label key={format.value} className="inline-flex items-center">
-                  <input
-                    type="radio"
-                    className="form-radio"
-                    name="image-format"
-                    value={format.value}
-                    checked={imageFormat === format.value}
-                    onChange={() => setImageFormat(format.value as ImageFormat)}
-                  />
-                  <span className="ml-2">{format.label}</span>
-                </label>
+                <option key={format.value} value={format.value}>
+                  {format.label}
+                </option>
               ))}
-            </div>
+            </select>
           </div>
           
           <button

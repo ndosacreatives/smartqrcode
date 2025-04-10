@@ -20,9 +20,9 @@ export default function Navbar() {
     setIsClient(true);
   }, []);
   
-  const isActive = (path: string) => {
-    return pathname === path;
-  };
+  // const isActive = (path: string) => {
+  //   return pathname === path;
+  // };
   
   return (
     <header className="bg-white shadow-sm sticky top-0 z-50">

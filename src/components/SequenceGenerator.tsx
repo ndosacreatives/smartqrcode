@@ -5,8 +5,9 @@ import QRCode from "react-qr-code";
 import * as qrcode from "qrcode";
 import JsBarcode from "jsbarcode";
 import { createRoot } from 'react-dom/client';
+import jsPDF from 'jspdf';
 
-type ImageFormat = 'png' | 'svg' | 'jpg' | 'eps';
+type ImageFormat = 'png' | 'svg' | 'jpg' | 'eps' | 'pdf';
 
 export default function SequenceGenerator() {
   const [prefix, setPrefix] = useState<string>("");
@@ -40,6 +41,7 @@ export default function SequenceGenerator() {
     { value: 'svg', label: 'SVG' },
     { value: 'jpg', label: 'JPG' },
     { value: 'eps', label: 'EPS' },
+    { value: 'pdf', label: 'PDF' },
   ];
   
   // Generate preview whenever input values change
@@ -89,120 +91,100 @@ export default function SequenceGenerator() {
 
   const downloadCode = async (codeValue: string, index: number) => {
     try {
+      const canvas = document.createElement("canvas");
+      let imageDataUrl: string | null = null;
+      let isSvg = false;
+      let svgString = '';
+
       if (format === "qrcode") {
         if (imageFormat === 'svg') {
-          // Create an SVG string from the QR code
-          const svgString = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-          svgString.setAttribute('width', '256');
-          svgString.setAttribute('height', '256');
-          
+          isSvg = true;
+          // Create SVG string (rendered in a temporary element)
           const qrElement = document.createElement('div');
           qrElement.style.display = 'inline-block';
           document.body.appendChild(qrElement);
-          
-          // Render QR code to the temporary div
           const qrComponent = <QRCode value={codeValue} size={256} level="M" />;
-          // Using React DOM to render
           createRoot(qrElement).render(qrComponent);
-          
-          // Get the rendered SVG and convert to string
           const renderedSvg = qrElement.querySelector('svg');
-          const svgContent = renderedSvg ? renderedSvg.outerHTML : '';
+          svgString = renderedSvg ? renderedSvg.outerHTML : '';
           document.body.removeChild(qrElement);
-          
-          // Download SVG
-          const blob = new Blob([svgContent], { type: 'image/svg+xml' });
-          const url = URL.createObjectURL(blob);
-          
-          const link = document.createElement("a");
-          link.href = url;
-          link.download = `qrcode-${index + 1}.svg`;
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-          URL.revokeObjectURL(url);
         } else {
-          const canvas = document.createElement("canvas");
-          await qrcode.toCanvas(canvas, codeValue, {
-            width: 256,
-            margin: 1,
-          });
-          
-          let mimeType = 'image/png';
-          let fileExtension = 'png';
-          
-          if (imageFormat === 'jpg') {
-            mimeType = 'image/jpeg';
-            fileExtension = 'jpg';
-          } else if (imageFormat === 'eps') {
-            // For EPS we'll use PDF as a base and convert
-            mimeType = 'application/pdf';
-            fileExtension = 'eps';
-          }
-          
-          const dataUrl = canvas.toDataURL(mimeType);
-          const link = document.createElement("a");
-          link.href = dataUrl;
-          link.download = `qrcode-${index + 1}.${fileExtension}`;
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
+          await qrcode.toCanvas(canvas, codeValue, { width: 256, margin: 1 });
+          imageDataUrl = canvas.toDataURL('image/png'); // Use PNG as base for PDF
         }
       } else {
         // Barcode
-        const canvas = document.createElement("canvas");
-        JsBarcode(canvas, codeValue, {
-          format: barcodeType,
-          width: 2,
-          height: 100,
-          displayValue: true,
-          lineColor: "#000000",
-          background: "#FFFFFF",
-        });
-        
+        JsBarcode(canvas, codeValue, { format: barcodeType, width: 2, height: 100, displayValue: true, lineColor: "#000000", background: "#FFFFFF" });
         if (imageFormat === 'svg') {
-          // Convert to SVG using the canvas data
+          isSvg = true;
           const barcodeData = canvas.toDataURL('image/png');
-          const svgImage = `
-            <svg xmlns="http://www.w3.org/2000/svg" width="${canvas.width}" height="${canvas.height}">
-              <image href="${barcodeData}" width="${canvas.width}" height="${canvas.height}"/>
-            </svg>
-          `;
-          
-          const blob = new Blob([svgImage], { type: 'image/svg+xml' });
-          const url = URL.createObjectURL(blob);
-          
-          const link = document.createElement("a");
-          link.href = url;
-          link.download = `barcode-${index + 1}.svg`;
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-          URL.revokeObjectURL(url);
+          svgString = `<svg xmlns="http://www.w3.org/2000/svg" width="${canvas.width}" height="${canvas.height}"><image href="${barcodeData}" width="${canvas.width}" height="${canvas.height}"/></svg>`;
         } else {
-          let mimeType = 'image/png';
-          let fileExtension = 'png';
-          
-          if (imageFormat === 'jpg') {
-            mimeType = 'image/jpeg';
-            fileExtension = 'jpg';
-          } else if (imageFormat === 'eps') {
-            // For EPS we'll use PDF as a base
-            mimeType = 'application/pdf';
-            fileExtension = 'eps';
-          }
-          
-          const dataUrl = canvas.toDataURL(mimeType);
-          const link = document.createElement("a");
-          link.href = dataUrl;
-          link.download = `barcode-${index + 1}.${fileExtension}`;
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
+          imageDataUrl = canvas.toDataURL('image/png'); // Use PNG as base for PDF
         }
       }
+
+      // --- Download Logic --- 
+      const downloadFileName = `${format === "qrcode" ? "qrcode" : "barcode"}-${index + 1}`;
+
+      if (imageFormat === 'pdf') {
+         if (!imageDataUrl) {
+           alert("Cannot generate PDF from SVG directly yet. Please choose PNG or JPG as base.");
+           // TODO: Could implement SVG to PDF conversion if needed
+           return;
+         }
+        const pdf = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
+        const pdfWidth = pdf.internal.pageSize.getWidth();
+        const pdfHeight = pdf.internal.pageSize.getHeight();
+        const margin = 10;
+        
+        const availableWidth = pdfWidth - margin * 2;
+        const availableHeight = pdfHeight - margin * 2;
+        let imgWidth = canvas.width * 0.264583;
+        let imgHeight = canvas.height * 0.264583;
+        const ratio = Math.min(availableWidth / imgWidth, availableHeight / imgHeight);
+        imgWidth *= ratio;
+        imgHeight *= ratio;
+        
+        const xPos = (pdfWidth - imgWidth) / 2;
+        const yPos = (pdfHeight - imgHeight) / 2;
+        
+        pdf.addImage(imageDataUrl, 'PNG', xPos, yPos, imgWidth, imgHeight);
+        pdf.save(`${downloadFileName}.pdf`);
+
+      } else if (isSvg) {
+        const blob = new Blob([svgString], { type: 'image/svg+xml' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `${downloadFileName}.svg`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      } else if (imageDataUrl) {
+        let mimeType = 'image/png';
+        let fileExtension = 'png';
+        if (imageFormat === 'jpg') {
+          mimeType = 'image/jpeg';
+          fileExtension = 'jpg';
+        } else if (imageFormat === 'eps') {
+          // Basic EPS handling (might need refinement)
+          mimeType = 'application/postscript'; 
+          fileExtension = 'eps';
+        }
+        const dataUrl = canvas.toDataURL(mimeType); // Re-encode if needed
+        const link = document.createElement("a");
+        link.href = dataUrl;
+        link.download = `${downloadFileName}.${fileExtension}`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
+
     } catch (err) {
       console.error("Error downloading code", err);
+      alert("Failed to download code.");
     }
   };
 
@@ -372,21 +354,18 @@ export default function SequenceGenerator() {
               <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="image-format">
                 Download Format
               </label>
-              <div className="flex flex-wrap gap-3">
-                {imageFormats.map((format) => (
-                  <label key={format.value} className="inline-flex items-center">
-                    <input
-                      type="radio"
-                      className="form-radio"
-                      name="image-format"
-                      value={format.value}
-                      checked={imageFormat === format.value}
-                      onChange={() => setImageFormat(format.value as ImageFormat)}
-                    />
-                    <span className="ml-2">{format.label}</span>
-                  </label>
-                ))}
-              </div>
+              <select
+                id="image-format"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                value={imageFormat}
+                onChange={(e) => setImageFormat(e.target.value as ImageFormat)}
+              >
+                <option value="png">PNG</option>
+                <option value="jpg">JPG</option>
+                <option value="svg">SVG</option>
+                <option value="eps">EPS</option>
+                <option value="pdf">PDF</option>
+              </select>
             </div>
             
             <div className="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-4">

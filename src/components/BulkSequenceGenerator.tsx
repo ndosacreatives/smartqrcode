@@ -294,6 +294,22 @@ export default function BulkSequenceGenerator() {
               />
             </div>
             
+            {/* Suffix Input */}
+            <div className="mb-4">
+              <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="suffix">
+                Suffix (Optional)
+              </label>
+              <input
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                id="suffix"
+                type="text"
+                value={suffix}
+                onChange={(e) => setSuffix(e.target.value)}
+                placeholder="e.g., -V1"
+                disabled={isGenerating}
+              />
+            </div>
+            
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
               <div>
                 <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="start-number">
