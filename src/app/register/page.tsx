@@ -1,10 +1,7 @@
-import React from "react";
-import Link from "next/link";
+"use client"; // Mark as client component
 
-export const metadata = {
-  title: "Register - Smart QR & Barcode",
-  description: "Create an account for Smart QR & Barcode",
-};
+import React from "react"; // Keep React import if needed, remove useState
+import Link from "next/link";
 
 export default function RegisterPage() {
   return (

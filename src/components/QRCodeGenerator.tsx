@@ -242,22 +242,23 @@ export default function QRCodeGenerator({ onDownload }: QRCodeGeneratorProps) {
   };
 
   return (
-    <div className="w-full mx-auto bg-white rounded-lg shadow-lg p-6 border border-zinc-200">
-      <div className="mb-6 text-center">
-        <h2 className="text-2xl font-semibold text-gray-800 mb-2">QR Code Generator</h2>
-        <p className="text-gray-600">Create custom QR codes for various types of data.</p>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-        {/* Left Column - Form */}
-        <div className="md:col-span-2 space-y-6">
-          <div className="bg-zinc-50 p-4 rounded-lg border border-zinc-200">
-            <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="qr-type">
-              QR Code Type
+    <div className="w-full bg-white rounded-xl shadow-lg border border-neutral-200 overflow-hidden">
+      {/* Optional Header */}
+      {/* <div className="p-6 border-b border-neutral-200">
+        <h2 className="text-xl font-semibold text-neutral-800">QR Code Generator</h2>
+        <p className="text-sm text-neutral-500 mt-1">Create custom QR codes for various data types.</p>
+      </div> */}
+      
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-0">
+        {/* Left Column - Form (with scrollbar) */}
+        <div className="lg:col-span-2 p-6 space-y-6 lg:overflow-y-auto lg:max-h-[calc(100vh-200px)]">
+          <div className="rounded-lg border border-neutral-200 p-4 bg-neutral-50">
+            <label className="block text-neutral-700 text-sm font-semibold mb-2" htmlFor="qr-type">
+              Type of Content
             </label>
             <select
               id="qr-type"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+              className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition text-sm bg-white"
               value={qrType}
               onChange={(e) => setQRType(e.target.value as QRCodeType)}
             >
@@ -269,148 +270,163 @@ export default function QRCodeGenerator({ onDownload }: QRCodeGeneratorProps) {
             </select>
           </div>
 
-          {/* Dynamic form fields based on QR type */}
-          {formFields[qrType].map((field) => (
-            <div key={field.id} className="mb-4">
-              <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor={field.id}>
-                {field.label} {field.required && <span className="text-red-500">*</span>}
-              </label>
-              
-              {field.type === 'textarea' ? (
-                <textarea
-                  id={field.id}
-                  name={field.id}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
-                  placeholder={field.placeholder}
-                  value={formValues[field.id]}
-                  onChange={handleInputChange}
-                  rows={4}
-                  required={field.required}
-                />
-              ) : field.type === 'select' ? (
-                <select
-                  id={field.id}
-                  name={field.id}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
-                  value={formValues[field.id]}
-                  onChange={handleInputChange}
-                  required={field.required}
-                >
-                  {field.id === 'wifiEncryption' && wifiEncryptionOptions.map(option => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              ) : (
+          {/* Dynamic form fields */}
+          <div className="space-y-4">
+            {formFields[qrType].map((field) => (
+              <div key={field.id}>
+                <label className="block text-neutral-700 text-sm font-semibold mb-1.5" htmlFor={field.id}>
+                  {field.label} {field.required && <span className="text-red-500">*</span>}
+                </label>
+                
+                {field.type === 'textarea' ? (
+                  <textarea
+                    id={field.id}
+                    name={field.id}
+                    className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition text-sm resize-vertical min-h-[80px]"
+                    placeholder={field.placeholder}
+                    value={formValues[field.id]}
+                    onChange={handleInputChange}
+                    rows={3} // Adjusted default rows
+                    required={field.required}
+                  />
+                ) : field.type === 'select' ? (
+                  <select
+                    id={field.id}
+                    name={field.id}
+                    className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition text-sm bg-white"
+                    value={formValues[field.id]}
+                    onChange={handleInputChange}
+                    required={field.required}
+                  >
+                    {field.id === 'wifiEncryption' && wifiEncryptionOptions.map(option => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    id={field.id}
+                    name={field.id}
+                    type={field.type}
+                    className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition text-sm"
+                    placeholder={field.placeholder}
+                    value={formValues[field.id]}
+                    onChange={handleInputChange}
+                    required={field.required}
+                  />
+                )}
+              </div>
+            ))}
+          </div>
+
+          {/* Customization Options */}
+          <div className="space-y-4 pt-4 border-t border-neutral-200">
+            <h3 className="text-lg font-medium text-neutral-900">Customization</h3>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-neutral-700 text-sm font-semibold mb-1.5" htmlFor="fgColor">
+                  Code Color
+                </label>
                 <input
-                  id={field.id}
-                  name={field.id}
-                  type={field.type}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
-                  placeholder={field.placeholder}
-                  value={formValues[field.id]}
-                  onChange={handleInputChange}
-                  required={field.required}
+                  className="w-full h-10 p-1 border border-neutral-300 rounded-md cursor-pointer"
+                  id="fgColor"
+                  type="color"
+                  value={foregroundColor}
+                  onChange={(e) => setForegroundColor(e.target.value)}
                 />
-              )}
+              </div>
+              <div>
+                <label className="block text-neutral-700 text-sm font-semibold mb-1.5" htmlFor="bgColor">
+                  Background Color
+                </label>
+                <input
+                  className="w-full h-10 p-1 border border-neutral-300 rounded-md cursor-pointer"
+                  id="bgColor"
+                  type="color"
+                  value={backgroundColor}
+                  onChange={(e) => setBackgroundColor(e.target.value)}
+                />
+              </div>
             </div>
-          ))}
 
-          <div className="grid grid-cols-2 gap-4 mb-4">
             <div>
-              <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="fgColor">
-                Foreground Color
+              <label className="block text-neutral-700 text-sm font-semibold mb-1.5" htmlFor="size">
+                Size <span className="text-xs text-neutral-500">({size}px)</span>
               </label>
               <input
-                className="w-full"
-                id="fgColor"
-                type="color"
-                value={foregroundColor}
-                onChange={(e) => setForegroundColor(e.target.value)}
+                className="w-full h-2 bg-neutral-200 rounded-lg appearance-none cursor-pointer range-lg dark:bg-neutral-700 accent-indigo-600"
+                id="size"
+                type="range"
+                min="64"
+                max="1024"
+                step="16"
+                value={size}
+                onChange={(e) => setSize(Number(e.target.value))}
               />
             </div>
-            <div>
-              <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="bgColor">
-                Background Color
-              </label>
-              <input
-                className="w-full"
-                id="bgColor"
-                type="color"
-                value={backgroundColor}
-                onChange={(e) => setBackgroundColor(e.target.value)}
-              />
-            </div>
-          </div>
-
-          <div className="mb-4">
-            <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="size">
-              Size: {size}px
-            </label>
-            <input
-              className="w-full"
-              id="size"
-              type="range"
-              min="128"
-              max="512"
-              step="8"
-              value={size}
-              onChange={(e) => setSize(Number(e.target.value))}
-            />
           </div>
           
-          <div className="mb-4">
-            <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="image-format">
-              Download Format
-            </label>
-            <select
-              id="image-format"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
-              value={imageFormat}
-              onChange={(e) => setImageFormat(e.target.value as ImageFormat)}
+          {/* Download Section */}
+          <div className="space-y-4 pt-4 border-t border-neutral-200">
+             <h3 className="text-lg font-medium text-neutral-900">Download</h3>
+            <div>
+              <label className="block text-neutral-700 text-sm font-semibold mb-1.5" htmlFor="image-format">
+                Format
+              </label>
+              <select
+                id="image-format"
+                className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition text-sm bg-white"
+                value={imageFormat}
+                onChange={(e) => setImageFormat(e.target.value as ImageFormat)}
+              >
+                {imageFormats.map((format) => (
+                  <option key={format.value} value={format.value}>
+                    {format.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            
+            <button
+              className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center text-sm"
+              onClick={generateQRCode}
+              disabled={!isFormValid() || !qrValue}
             >
-              {imageFormats.map((format) => (
-                <option key={format.value} value={format.value}>
-                  {format.label}
-                </option>
-              ))}
-            </select>
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              </svg>
+              Download QR Code
+            </button>
           </div>
-          
-          <button
-            className="w-full bg-primary hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
-            onClick={generateQRCode}
-            disabled={!isFormValid() || !qrValue}
-          >
-            Download QR Code
-          </button>
         </div>
         
-        {/* Right Column - Preview */}
-        <div className="flex flex-col items-center justify-center">
-          <h3 className="text-lg font-medium text-gray-900 mb-4">QR Code Preview</h3>
-          <div className="bg-gray-50 p-6 rounded-lg border border-gray-200 flex items-center justify-center w-full h-full" ref={qrRef}>
+        {/* Right Column - Preview (Sticky and Centered) */}
+        <div className="lg:col-span-1 bg-neutral-100 p-6 flex flex-col items-center justify-center lg:sticky lg:top-[calc(64px+1rem)] lg:h-[calc(100vh-128px-2rem)]">
+          <h3 className="text-base font-semibold text-neutral-700 mb-4">Preview</h3>
+          <div className="bg-white p-4 rounded-lg shadow-md border border-neutral-200 flex items-center justify-center w-full aspect-square max-w-[300px]" ref={qrRef}>
             {qrValue ? (
-              <div className="p-4 bg-white rounded-md shadow-sm inline-block">
+              <div className="transition-all duration-300 ease-in-out" style={{ width: `${Math.min(size, 250)}px`, height: `${Math.min(size, 250)}px` }}>
                 <QRCode
                   value={qrValue}
-                  size={size}
+                  size={Math.min(size, 250)} // Limit preview size slightly
                   fgColor={foregroundColor}
                   bgColor={backgroundColor}
-                  level="M"
+                  level="M" // Consider adding Quality level option
+                  style={{ height: "auto", maxWidth: "100%", width: "100%" }}
                 />
               </div>
             ) : (
-              <div className="text-gray-400 text-center">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-12 h-12 mx-auto mb-2">
+              <div className="text-neutral-400 text-center p-8">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-16 h-16 mx-auto mb-3 text-neutral-300">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0 1 3.75 9.375v-4.5ZM3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 0 1-1.125-1.125v-4.5ZM13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0 1 13.5 9.375v-4.5Z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 0 1-1.125-1.125v-4.5Z" />
                 </svg>
-                <p>Fill the form to generate a QR code</p>
+                <p className="text-sm font-medium">Enter content to generate QR code</p>
               </div>
             )}
           </div>
-          <p className="text-sm text-gray-500 mt-4">
+          <p className="text-xs text-neutral-500 mt-3 h-4">
             {qrValue && `Type: ${qrTypes.find(t => t.value === qrType)?.label}`}
           </p>
         </div>
