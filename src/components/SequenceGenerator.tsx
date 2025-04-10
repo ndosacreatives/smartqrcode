@@ -101,7 +101,7 @@ export default function SequenceGenerator() {
           
           // Render QR code to the temporary div
           const qrComponent = <QRCode value={codeValue} size={256} level="M" />;
-          // @ts-expect-error - Using React DOM to render
+          // Using React DOM to render
           createRoot(qrElement).render(qrComponent);
           
           // Get the rendered SVG and convert to string

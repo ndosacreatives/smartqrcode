@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useEffect, useCallback } from "react";
+import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import JsBarcode from "jsbarcode";
 
 type ImageFormat = 'png' | 'svg' | 'jpg' | 'eps';
@@ -24,7 +24,7 @@ export default function BarcodeGenerator({ onDownload }: BarcodeGeneratorProps) 
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   // List of supported barcode formats
-  const barcodeFormats = [
+  const barcodeFormats = useMemo(() => [
     { value: "CODE128", label: "Code 128 (default)", regex: /^[\x00-\x7F]*$/ },
     { value: "EAN13", label: "EAN-13", regex: /^\d{13}$/ },
     { value: "UPC", label: "UPC", regex: /^\d{12}$/ },
@@ -33,7 +33,7 @@ export default function BarcodeGenerator({ onDownload }: BarcodeGeneratorProps) 
     { value: "ITF14", label: "ITF-14", regex: /^\d{14}$/ },
     { value: "MSI", label: "MSI", regex: /^\d+$/ },
     { value: "pharmacode", label: "Pharmacode", regex: /^\d+$/ },
-  ];
+  ], []);
 
   // List of supported image formats
   const imageFormats = [
