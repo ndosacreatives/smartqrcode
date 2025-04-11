@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import QRCodeGenerator from "@/components/QRCodeGenerator";
 import BarcodeGenerator from "@/components/BarcodeGenerator";
@@ -9,37 +9,35 @@ import BulkSequenceGenerator from "@/components/BulkSequenceGenerator";
 
 // Unified component for code generation
 function UnifiedGenerator() {
-  const [activeTab, setActiveTab] = useState<string>(() => {
-    // Check URL hash first (for sharing)
-    if (typeof window !== 'undefined') {
-      const hash = window.location.hash.replace('#', '');
-      if (['qrcode', 'barcode', 'sequence', 'bulk'].includes(hash)) {
-        return hash;
-      }
-      
-      // Then check localStorage (for returning users)
+  const [activeTab, setActiveTab] = useState<string>("qrcode");
+  const [isInitialized, setIsInitialized] = useState(false);
+
+  useEffect(() => {
+    const hash = window.location.hash.replace('#', '');
+    if (['qrcode', 'barcode', 'sequence', 'bulk'].includes(hash)) {
+      setActiveTab(hash);
+    } else {
       const savedTab = localStorage.getItem('activeGeneratorTab');
       if (savedTab && ['qrcode', 'barcode', 'sequence', 'bulk'].includes(savedTab)) {
-        return savedTab;
+        setActiveTab(savedTab);
       }
     }
-    
-    // Default to qrcode if nothing found
-    return "qrcode";
-  });
+    setIsInitialized(true);
+  }, []);
   
-  // Update localStorage and URL when tab changes
   const handleTabChange = (tab: string) => {
     setActiveTab(tab);
     
-    // Save to localStorage for returning users
     if (typeof window !== 'undefined') {
       localStorage.setItem('activeGeneratorTab', tab);
       
-      // Update URL hash for shareability without page reload
       window.history.replaceState(null, '', `#${tab}`);
     }
   };
+
+  if (!isInitialized) {
+    return <div className="w-full h-64 bg-gray-100 rounded-lg animate-pulse"></div>;
+  }
   
   return (
     <div className="w-full">

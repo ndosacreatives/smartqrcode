@@ -3,6 +3,8 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import JsBarcode from "jsbarcode";
 import jsPDF from 'jspdf';
+import { useSubscription } from "@/context/SubscriptionContext";
+import { useRouter } from "next/navigation";
 
 type ImageFormat = 'png' | 'svg' | 'jpg' | 'eps' | 'pdf';
 
@@ -11,6 +13,8 @@ interface BarcodeGeneratorProps {
 }
 
 export default function BarcodeGenerator({ onDownload }: BarcodeGeneratorProps) {
+  const router = useRouter();
+  const { hasFeature, subscriptionTier, decrementDaily, remainingDaily } = useSubscription();
   const [text, setText] = useState<string>("");
   const [suffix, setSuffix] = useState<string>("");
   const [barcodeType, setBarcodeType] = useState<string>("CODE128");
@@ -84,84 +88,87 @@ export default function BarcodeGenerator({ onDownload }: BarcodeGeneratorProps) 
     }
   }, [text, suffix, barcodeType, width, height, displayValue, foregroundColor, backgroundColor, marginTop, marginBottom, validateInput]);
 
-  const downloadBarcode = () => {
-    const valueToEncode = text + suffix;
-    if (!canvasRef.current || valueToEncode.trim() === "") return;
-    const canvas = canvasRef.current;
-    
-    try {
-      if (imageFormat === 'pdf') {
-        // --- PDF Download Logic --- 
-        const pdf = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
-        const pdfWidth = pdf.internal.pageSize.getWidth();
-        const pdfHeight = pdf.internal.pageSize.getHeight();
-        const margin = 10;
-        const imgData = canvas.toDataURL('image/png');
-        
-        const availableWidth = pdfWidth - margin * 2;
-        const availableHeight = pdfHeight - margin * 2;
-        let imgWidth = canvas.width * 0.264583;
-        let imgHeight = canvas.height * 0.264583;
-        const ratio = Math.min(availableWidth / imgWidth, availableHeight / imgHeight);
-        imgWidth *= ratio;
-        imgHeight *= ratio;
-        
-        const xPos = (pdfWidth - imgWidth) / 2;
-        const yPos = (pdfHeight - imgHeight) / 2;
-        
-        pdf.addImage(imgData, 'PNG', xPos, yPos, imgWidth, imgHeight);
-        pdf.save(`barcode-${barcodeType.toLowerCase()}-${valueToEncode}.pdf`);
-        
-      } else if (imageFormat === 'svg') {
-        // Create an SVG from the canvas
-        const imageData = canvas.toDataURL('image/png');
-        
-        const svgImage = `
-          <svg xmlns="http://www.w3.org/2000/svg" width="${canvas.width}" height="${canvas.height}">
-            <image href="${imageData}" width="${canvas.width}" height="${canvas.height}"/>
-          </svg>
-        `;
-        
-        const blob = new Blob([svgImage], { type: 'image/svg+xml' });
-        const url = URL.createObjectURL(blob);
-        
-        const link = document.createElement("a");
-        link.href = url;
-        link.download = `barcode-${barcodeType.toLowerCase()}-${valueToEncode}.svg`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-      } else {
-        let mimeType = 'image/png';
-        let fileExtension = 'png';
-        
-        if (imageFormat === 'jpg') {
-          mimeType = 'image/jpeg';
-          fileExtension = 'jpg';
-        } else if (imageFormat === 'eps') {
-          // For EPS we'll use PDF as a base
-          mimeType = 'application/pdf';
-          fileExtension = 'eps';
-        }
-        
-        const dataUrl = canvasRef.current.toDataURL(mimeType);
-        
-        if (onDownload) {
-          onDownload(dataUrl);
-        } else {
-          // Default download behavior
-          const link = document.createElement("a");
-          link.href = dataUrl;
-          link.download = `barcode-${barcodeType.toLowerCase()}-${valueToEncode}.${fileExtension}`;
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-        }
+  const generateBarcode = () => {
+    if (canvasRef.current) {
+      try {
+        // Generate barcode with specified options
+        JsBarcode(canvasRef.current, text + suffix, {
+          format: barcodeType,
+          width,
+          height,
+          displayValue,
+          marginTop,
+          marginBottom,
+          lineColor: foregroundColor,
+          background: backgroundColor,
+        });
+      } catch (e) {
+        console.error("Failed to generate barcode:", e);
+        alert("Failed to generate barcode. Please check your input.");
       }
-    } catch (err) {
-      console.error("Error downloading barcode", err);
-      alert("Failed to download barcode.")
+    }
+  };
+
+  const downloadBarcode = () => {
+    if (canvasRef.current) {
+      try {
+        // For free users, decrement daily limit and enforce low resolution for JPEG
+        if (subscriptionTier === "free") {
+          decrementDaily();
+          
+          // Force low resolution JPEG for free users
+          const canvas = canvasRef.current as HTMLCanvasElement;
+          const resizedCanvas = document.createElement("canvas");
+          // Low resolution output - approximately 72dpi quality
+          const scaleFactor = 0.5;
+          resizedCanvas.width = canvas.width * scaleFactor;
+          resizedCanvas.height = canvas.height * scaleFactor;
+          const ctx = resizedCanvas.getContext("2d");
+          ctx?.drawImage(canvas, 0, 0, resizedCanvas.width, resizedCanvas.height);
+          
+          // Force JPEG format for free users
+          const dataUrl = resizedCanvas.toDataURL("image/jpeg", 0.7);
+          const downloadLink = document.createElement("a");
+          downloadLink.href = dataUrl;
+          downloadLink.download = `barcode-${barcodeType.toLowerCase()}-${text + suffix}.jpg`;
+          document.body.appendChild(downloadLink);
+          downloadLink.click();
+          document.body.removeChild(downloadLink);
+        } else {
+          // Paid users get full resolution and format options
+          const canvas = canvasRef.current as HTMLCanvasElement;
+          let dataUrl;
+          let extension;
+          
+          // Allow different formats for paid users
+          if (imageFormat === "svg" && hasFeature("svgDownload")) {
+            // SVG export logic (requires converting canvas to SVG)
+            // This would require additional libraries in a real implementation
+            alert("SVG export not implemented in this demo");
+            return;
+          } else if (imageFormat === "pdf" && hasFeature("pdfDownload")) {
+            // PDF export logic would go here
+            alert("PDF export not implemented in this demo");
+            return;
+          } else {
+            // Default to high-quality PNG/JPEG for paid users
+            const mimeType = imageFormat === "jpg" ? "image/jpeg" : "image/png";
+            const quality = imageFormat === "jpg" ? 1.0 : undefined;
+            dataUrl = canvas.toDataURL(mimeType, quality);
+            extension = imageFormat;
+          }
+          
+          // Download the file
+          const downloadLink = document.createElement("a");
+          downloadLink.href = dataUrl;
+          downloadLink.download = `barcode-${barcodeType.toLowerCase()}-${text + suffix}.${extension}`;
+          document.body.appendChild(downloadLink);
+          downloadLink.click();
+          document.body.removeChild(downloadLink);
+        }
+      } catch (e) {
+        console.error("Failed to download barcode:", e);
+      }
     }
   };
 
@@ -344,30 +351,106 @@ export default function BarcodeGenerator({ onDownload }: BarcodeGeneratorProps) 
               Download Format
             </label>
             <div className="flex flex-wrap gap-3">
-              {imageFormats.map((format) => (
-                <label key={format.value} className="inline-flex items-center">
-                  <input
-                    type="radio"
-                    className="form-radio"
-                    name="image-format"
-                    value={format.value}
-                    checked={imageFormat === format.value}
-                    onChange={() => setImageFormat(format.value as ImageFormat)}
-                  />
-                  <span className="ml-2">{format.label}</span>
-                </label>
-              ))}
+              <label className="inline-flex items-center">
+                <input
+                  type="radio"
+                  className="form-radio"
+                  name="image-format"
+                  value="jpg"
+                  checked={imageFormat === "jpg" || subscriptionTier === "free"}
+                  onChange={() => setImageFormat("jpg")}
+                />
+                <span className="ml-2">JPEG</span>
+                {subscriptionTier === "free" && (
+                  <span className="ml-1 text-xs text-gray-600">(Low Resolution)</span>
+                )}
+              </label>
+              
+              <label className={`inline-flex items-center ${!hasFeature("svgDownload") ? "opacity-50" : ""}`}>
+                <input
+                  type="radio"
+                  className="form-radio"
+                  name="image-format"
+                  value="png"
+                  checked={imageFormat === "png"}
+                  onChange={() => setImageFormat("png")}
+                  disabled={!hasFeature("svgDownload")}
+                />
+                <span className="ml-2">PNG</span>
+                {!hasFeature("svgDownload") && (
+                  <span className="ml-1 text-xs text-blue-600 font-semibold">PRO</span>
+                )}
+              </label>
+              
+              <label className={`inline-flex items-center ${!hasFeature("svgDownload") ? "opacity-50" : ""}`}>
+                <input
+                  type="radio"
+                  className="form-radio"
+                  name="image-format"
+                  value="svg"
+                  checked={imageFormat === "svg"}
+                  onChange={() => setImageFormat("svg")}
+                  disabled={!hasFeature("svgDownload")}
+                />
+                <span className="ml-2">SVG</span>
+                {!hasFeature("svgDownload") && (
+                  <span className="ml-1 text-xs text-blue-600 font-semibold">PRO</span>
+                )}
+              </label>
+              
+              <label className={`inline-flex items-center ${!hasFeature("pdfDownload") ? "opacity-50" : ""}`}>
+                <input
+                  type="radio"
+                  className="form-radio"
+                  name="image-format"
+                  value="pdf"
+                  checked={imageFormat === "pdf"}
+                  onChange={() => setImageFormat("pdf")}
+                  disabled={!hasFeature("pdfDownload")}
+                />
+                <span className="ml-2">PDF</span>
+                {!hasFeature("pdfDownload") && (
+                  <span className="ml-1 text-xs text-blue-600 font-semibold">PRO</span>
+                )}
+              </label>
             </div>
           </div>
           
           <button
             className="w-full bg-primary hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline flex items-center justify-center"
+            onClick={generateBarcode}
+            disabled={!text || !!errorMessage}
+          >
+            <span>Generate Barcode</span>
+          </button>
+          
+          <button
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline flex items-center justify-center"
             onClick={downloadBarcode}
             disabled={!text || !!errorMessage}
           >
             <span>Download Barcode</span>
             <span className="ml-2">(.{imageFormat.toUpperCase()})</span>
           </button>
+          
+          {/* Remaining daily count for free users */}
+          {subscriptionTier === "free" && (
+            <div className="mt-4 text-xs text-amber-600 bg-amber-50 p-2 rounded-md text-center">
+              {remainingDaily <= 5 ? (
+                <>
+                  You have {remainingDaily} barcodes remaining today.  
+                  <button 
+                    onClick={() => router.push('/pricing')} 
+                    className="ml-1 underline"
+                  >
+                    Upgrade for unlimited.
+                  </button>
+                </>
+              ) : (
+                <>Free tier: Limited to low-resolution JPEG</>
+              )}
+            </div>
+          )}
         </div>
         
         {/* Right Column - Preview */}

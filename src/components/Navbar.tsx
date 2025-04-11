@@ -6,13 +6,13 @@ import { Bars3Icon, XMarkIcon } from '@heroicons/react/24/outline';
 import { Button } from "@/components/ui/button";
 import { MoonIcon, SunIcon } from "@heroicons/react/24/outline";
 import { useTheme } from "next-themes";
-// Remove Clerk imports until fully configured
-// import { UserButton, SignedIn, SignedOut } from "@clerk/nextjs";
 // Removed unused Lucide icons
 // import { Menu, X } from "lucide-react";
 
 const navigation = [
   { name: 'Home', href: '/' },
+  { name: 'Pricing', href: '/pricing' },
+  { name: 'QR Modal', href: '/qr-modal-example' },
   { name: 'Login', href: '/login' },
   { name: 'Register', href: '/register' },
 ];
@@ -60,6 +60,12 @@ export default function Navbar() {
           ))}
         </div>
         <div className="hidden lg:flex lg:items-center lg:justify-end lg:flex-1">
+          <Link 
+            href="/pricing"
+            className="text-sm font-semibold text-white bg-green-600 hover:bg-green-700 px-4 py-2 rounded-md mr-4 transition-colors"
+          >
+            Upgrade
+          </Link>
           <Button
             variant="ghost"
             size="icon"
@@ -109,6 +115,12 @@ export default function Navbar() {
                   ))}
                 </div>
                 <div className="py-6">
+                  <Link
+                    href="/pricing"
+                    className="block w-full text-center px-3 py-2.5 text-base font-semibold leading-7 text-white bg-green-600 hover:bg-green-700 rounded-lg mb-4"
+                  >
+                    Upgrade
+                  </Link>
                   <Button
                     variant="ghost"
                     size="sm"

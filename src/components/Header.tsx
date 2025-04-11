@@ -3,11 +3,13 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useTheme } from "next-themes";
+import { useAuth } from "@/context/FirebaseAuthContext";
 
 export default function Header() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { theme, setTheme } = useTheme();
+  const { user, loading, logout } = useAuth();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -17,6 +19,15 @@ export default function Header() {
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      // No need to redirect as the auth state change will trigger UI updates
+    } catch (error) {
+      console.error("Logout error:", error);
+    }
+  };
 
   return (
     <header className={`sticky top-0 z-50 w-full transition-all duration-300 ${isScrolled ? 'bg-white shadow-md py-2' : 'bg-white/90 backdrop-blur-md py-4'}`}>
@@ -50,16 +61,39 @@ export default function Header() {
             <Link href="#features" className="text-gray-700 hover:text-indigo-600 font-medium transition-colors">
               Features
             </Link>
+            {user && (
+              <Link href="/dashboard" className="text-gray-700 hover:text-indigo-600 font-medium transition-colors">
+                Dashboard
+              </Link>
+            )}
           </nav>
 
           {/* Auth Buttons */}
           <div className="hidden md:flex items-center space-x-4">
-            <Link href="/login" className="text-gray-700 hover:text-indigo-600 font-medium transition-colors">
-              Sign In
-            </Link>
-            <Link href="/register" className="px-4 py-2 rounded-lg bg-indigo-600 text-white font-medium hover:bg-indigo-700 transition-colors shadow-sm">
-              Sign Up
-            </Link>
+            {loading ? (
+              <div className="h-8 w-8 rounded-full bg-gray-200 animate-pulse"></div>
+            ) : user ? (
+              <div className="flex items-center space-x-3">
+                <span className="text-gray-700 font-medium">
+                  {user.displayName}
+                </span>
+                <button 
+                  onClick={handleLogout}
+                  className="px-3 py-1 rounded-lg bg-gray-100 text-gray-700 font-medium hover:bg-gray-200 transition-colors"
+                >
+                  Sign Out
+                </button>
+              </div>
+            ) : (
+              <>
+                <Link href="/login" className="text-gray-700 hover:text-indigo-600 font-medium transition-colors">
+                  Sign In
+                </Link>
+                <Link href="/register" className="px-4 py-2 rounded-lg bg-indigo-600 text-white font-medium hover:bg-indigo-700 transition-colors shadow-sm">
+                  Sign Up
+                </Link>
+              </>
+            )}
             
             {/* Theme Toggle Button */}
             <button
@@ -112,13 +146,36 @@ export default function Header() {
               <Link href="#features" className="text-gray-700 hover:text-indigo-600 font-medium transition-colors py-2" onClick={() => setIsMobileMenuOpen(false)}>
                 Features
               </Link>
+              {user && (
+                <Link href="/dashboard" className="text-gray-700 hover:text-indigo-600 font-medium transition-colors py-2" onClick={() => setIsMobileMenuOpen(false)}>
+                  Dashboard
+                </Link>
+              )}
               <div className="flex space-x-4 pt-2 border-t border-gray-100">
-                <Link href="/login" className="text-gray-700 hover:text-indigo-600 font-medium transition-colors" onClick={() => setIsMobileMenuOpen(false)}>
-                  Sign In
-                </Link>
-                <Link href="/register" className="px-4 py-2 rounded-lg bg-indigo-600 text-white font-medium hover:bg-indigo-700 transition-colors shadow-sm" onClick={() => setIsMobileMenuOpen(false)}>
-                  Sign Up
-                </Link>
+                {loading ? (
+                  <div className="h-8 w-8 rounded-full bg-gray-200 animate-pulse"></div>
+                ) : user ? (
+                  <div className="flex items-center space-x-3">
+                    <span className="text-gray-700 font-medium">
+                      {user.displayName}
+                    </span>
+                    <button
+                      onClick={handleLogout}
+                      className="px-3 py-1 rounded-lg bg-gray-100 text-gray-700 font-medium hover:bg-gray-200 transition-colors"
+                    >
+                      Sign Out
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <Link href="/login" className="text-gray-700 hover:text-indigo-600 font-medium transition-colors" onClick={() => setIsMobileMenuOpen(false)}>
+                      Sign In
+                    </Link>
+                    <Link href="/register" className="px-4 py-2 rounded-lg bg-indigo-600 text-white font-medium hover:bg-indigo-700 transition-colors shadow-sm" onClick={() => setIsMobileMenuOpen(false)}>
+                      Sign Up
+                    </Link>
+                  </>
+                )}
                 <button
                   onClick={() => {
                     setTheme(theme === 'dark' ? 'light' : 'dark');

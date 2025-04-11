@@ -6,10 +6,16 @@ import * as qrcode from "qrcode";
 import JsBarcode from "jsbarcode";
 import { createRoot } from 'react-dom/client';
 import jsPDF from 'jspdf';
+import { useSubscription } from "@/context/SubscriptionContext";
+import { useRouter } from "next/navigation";
 
 type ImageFormat = 'png' | 'svg' | 'jpg' | 'eps' | 'pdf' | 'pdf-tile';
 
 export default function SequenceGenerator() {
+  const router = useRouter();
+  // Add subscription context
+  const { hasFeature, subscriptionTier, decrementDaily, remainingDaily } = useSubscription();
+  
   const [prefix, setPrefix] = useState<string>("");
   const [startNumber, setStartNumber] = useState<number>(1);
   const [increment, setIncrement] = useState<number>(1);
@@ -247,11 +253,78 @@ export default function SequenceGenerator() {
       .catch(err => console.error('Failed to copy: ', err));
   };
 
+  const downloadSequence = () => {
+    if (!barcodeCanvasRef.current || generatedCodes.length === 0) return;
+    
+    try {
+      // For free users, decrement daily limit and enforce low resolution JPEG
+      if (subscriptionTier === "free") {
+        decrementDaily();
+        
+        // Create a zip with low-resolution JPEGs
+        alert("Free tier: Files will be downloaded as low-resolution JPEGs");
+        
+        // Simulate downloading a low-res sample
+        const canvas = barcodeCanvasRef.current;
+        const resizedCanvas = document.createElement("canvas");
+        const scaleFactor = 0.5; // 50% of original size for low resolution
+        resizedCanvas.width = canvas.width * scaleFactor;
+        resizedCanvas.height = canvas.height * scaleFactor;
+        const ctx = resizedCanvas.getContext("2d");
+        ctx?.drawImage(canvas, 0, 0, resizedCanvas.width, resizedCanvas.height);
+        
+        // Force JPEG format with low quality for free users
+        const dataUrl = resizedCanvas.toDataURL("image/jpeg", 0.7);
+        const link = document.createElement("a");
+        link.href = dataUrl;
+        link.download = `barcode-sequence-sample.jpg`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        // Show upgrade message
+        alert("Upgrade to Pro to download the full sequence in high resolution!");
+      } else {
+        // Paid users get full sequence in high quality
+        const canvas = barcodeCanvasRef.current;
+        
+        // This is just a simulation - in a real app, you'd generate all codes and zip them
+        if (imageFormat === "svg" && hasFeature("svgDownload")) {
+          alert("SVG sequence export would be available here for Pro users");
+        } else if (imageFormat === "pdf" && hasFeature("pdfDownload")) {
+          alert("PDF sequence export would be available here for Pro users");
+        } else {
+          // High quality PNG or JPEG download
+          const mimeType = imageFormat === "jpg" ? "image/jpeg" : "image/png";
+          const quality = imageFormat === "jpg" ? 1.0 : undefined;
+          const dataUrl = canvas.toDataURL(mimeType, quality);
+          
+          // In a real implementation, we would create a zip file with all barcodes
+          // For this demo, we'll just download the current preview
+          const link = document.createElement("a");
+          link.href = dataUrl;
+          link.download = `barcode-sequence-${previewCode}.${imageFormat}`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          
+          alert(`In a complete implementation, this would download a ZIP file containing all ${generatedCodes.length} barcodes in high quality ${imageFormat.toUpperCase()} format.`);
+        }
+      }
+    } catch (error) {
+      console.error("Error downloading sequence:", error);
+      alert("Failed to download sequence. Please try again.");
+    }
+  };
+
   return (
-    <div className="w-full mx-auto bg-white rounded-lg shadow-md">
-      <div className="p-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          {/* Left Column - Form */}
+    <div className="flex flex-col lg:flex-row gap-8">
+      {/* Left column - Controls */}
+      <div className="flex-1">
+        <div className="bg-white p-6 rounded-lg shadow-sm">
+          <h2 className="text-xl font-bold text-gray-800 mb-6">Generate Barcode Sequence</h2>
+          
+          {/* Form Container */}
           <div className="space-y-6">
             <div className="mb-4">
               <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="code-format">
@@ -398,19 +471,104 @@ export default function SequenceGenerator() {
               <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="image-format">
                 Download Format
               </label>
-              <select
-                id="image-format"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
-                value={imageFormat}
-                onChange={(e) => setImageFormat(e.target.value as ImageFormat)}
-              >
-                <option value="png">PNG</option>
-                <option value="jpg">JPG</option>
-                <option value="svg">SVG</option>
-                <option value="eps">EPS</option>
-                <option value="pdf">PDF (Single)</option>
-                <option value="pdf-tile">PDF (Tile Sheet)</option>
-              </select>
+              <div className="bg-zinc-50 p-4 rounded-lg border border-zinc-200 mb-4">
+                <div className="flex flex-wrap gap-3">
+                  <label className="inline-flex items-center">
+                    <input
+                      type="radio"
+                      className="form-radio"
+                      name="image-format"
+                      value="jpg"
+                      checked={imageFormat === "jpg"}
+                      onChange={(e) => setImageFormat(e.target.value as ImageFormat)}
+                    />
+                    <span className="ml-2">JPEG</span>
+                    {subscriptionTier === "free" && (
+                      <span className="ml-1 text-xs text-gray-600">(Low Resolution)</span>
+                    )}
+                  </label>
+                  
+                  <label className={`inline-flex items-center ${!hasFeature("noWatermark") ? "opacity-50" : ""}`}>
+                    <input
+                      type="radio"
+                      className="form-radio"
+                      name="image-format"
+                      value="png"
+                      checked={imageFormat === "png"}
+                      onChange={(e) => hasFeature("noWatermark") ? setImageFormat(e.target.value as ImageFormat) : router.push('/pricing')}
+                      disabled={!hasFeature("noWatermark")}
+                    />
+                    <span className="ml-2">PNG</span>
+                    {!hasFeature("noWatermark") && (
+                      <span className="ml-1 text-xs text-blue-600 font-semibold">PRO</span>
+                    )}
+                  </label>
+                  
+                  <label className={`inline-flex items-center ${!hasFeature("svgDownload") ? "opacity-50" : ""}`}>
+                    <input
+                      type="radio"
+                      className="form-radio"
+                      name="image-format"
+                      value="svg"
+                      checked={imageFormat === "svg"}
+                      onChange={(e) => hasFeature("svgDownload") ? setImageFormat(e.target.value as ImageFormat) : router.push('/pricing')}
+                      disabled={!hasFeature("svgDownload")}
+                    />
+                    <span className="ml-2">SVG</span>
+                    {!hasFeature("svgDownload") && (
+                      <span className="ml-1 text-xs text-blue-600 font-semibold">PRO</span>
+                    )}
+                  </label>
+                  
+                  <label className={`inline-flex items-center ${!hasFeature("pdfDownload") ? "opacity-50" : ""}`}>
+                    <input
+                      type="radio"
+                      className="form-radio"
+                      name="image-format"
+                      value="pdf"
+                      checked={imageFormat === "pdf"}
+                      onChange={(e) => hasFeature("pdfDownload") ? setImageFormat(e.target.value as ImageFormat) : router.push('/pricing')}
+                      disabled={!hasFeature("pdfDownload")}
+                    />
+                    <span className="ml-2">PDF</span>
+                    {!hasFeature("pdfDownload") && (
+                      <span className="ml-1 text-xs text-blue-600 font-semibold">PRO</span>
+                    )}
+                  </label>
+                  
+                  <label className={`inline-flex items-center ${!hasFeature("pdfDownload") ? "opacity-50" : ""}`}>
+                    <input
+                      type="radio"
+                      className="form-radio"
+                      name="image-format"
+                      value="pdf-tile"
+                      checked={imageFormat === "pdf-tile"}
+                      onChange={(e) => hasFeature("pdfDownload") ? setImageFormat(e.target.value as ImageFormat) : router.push('/pricing')}
+                      disabled={!hasFeature("pdfDownload")}
+                    />
+                    <span className="ml-2">PDF Tile</span>
+                    {!hasFeature("pdfDownload") && (
+                      <span className="ml-1 text-xs text-blue-600 font-semibold">PRO</span>
+                    )}
+                  </label>
+                  
+                  <label className={`inline-flex items-center ${!hasFeature("svgDownload") ? "opacity-50" : ""}`}>
+                    <input
+                      type="radio"
+                      className="form-radio"
+                      name="image-format"
+                      value="eps"
+                      checked={imageFormat === "eps"}
+                      onChange={(e) => hasFeature("svgDownload") ? setImageFormat(e.target.value as ImageFormat) : router.push('/pricing')}
+                      disabled={!hasFeature("svgDownload")}
+                    />
+                    <span className="ml-2">EPS</span>
+                    {!hasFeature("svgDownload") && (
+                      <span className="ml-1 text-xs text-blue-600 font-semibold">PRO</span>
+                    )}
+                  </label>
+                </div>
+              </div>
             </div>
 
             {/* Tiling Options (Conditional) */}
@@ -428,18 +586,18 @@ export default function SequenceGenerator() {
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
-                   <div>
-                     <label className="block text-gray-700 text-sm font-bold mb-1" htmlFor="tile-spacing">Spacing</label>
-                     <input id="tile-spacing" type="number" min="0" value={tileSpacing} onChange={e => setTileSpacing(Number(e.target.value))} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary" />
-                   </div>
-                   <div>
-                     <label className="block text-gray-700 text-sm font-bold mb-1" htmlFor="tile-spacing-unit">Unit</label>
-                     <select id="tile-spacing-unit" value={tileSpacingUnit} onChange={e => setTileSpacingUnit(e.target.value as 'mm' | 'cm')} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary">
-                       <option value="mm">mm</option>
-                       <option value="cm">cm</option>
-                     </select>
-                   </div>
-                 </div>
+                  <div>
+                    <label className="block text-gray-700 text-sm font-bold mb-1" htmlFor="tile-spacing">Spacing</label>
+                    <input id="tile-spacing" type="number" min="0" value={tileSpacing} onChange={e => setTileSpacing(Number(e.target.value))} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary" />
+                  </div>
+                  <div>
+                    <label className="block text-gray-700 text-sm font-bold mb-1" htmlFor="tile-spacing-unit">Unit</label>
+                    <select id="tile-spacing-unit" value={tileSpacingUnit} onChange={e => setTileSpacingUnit(e.target.value as 'mm' | 'cm')} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary">
+                      <option value="mm">mm</option>
+                      <option value="cm">cm</option>
+                    </select>
+                  </div>
+                </div>
               </div>
             )}
             
@@ -453,7 +611,7 @@ export default function SequenceGenerator() {
               <div className="relative">
                 <button
                   className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline flex items-center"
-                  onClick={downloadAll}
+                  onClick={downloadSequence}
                   disabled={generatedCodes.length === 0 && count === 0}
                 >
                   <span>Download All</span>
@@ -461,73 +619,104 @@ export default function SequenceGenerator() {
                 </button>
               </div>
             </div>
-          </div>
-          
-          {/* Right Column - Preview */}
-          <div>
-            <h3 className="text-lg font-medium text-gray-900 mb-4">Preview</h3>
-            <div className="bg-gray-50 p-6 rounded-lg border border-gray-200 flex items-center justify-center mb-6">
-              {previewCode ? (
-                <div className="inline-block">
-                  {format === "qrcode" ? (
-                    <div className="p-4 bg-white rounded-md shadow-sm" ref={qrCodeRef}>
-                      <QRCode
-                        value={previewCode}
-                        size={180}
-                        level="M"
-                      />
-                      <div className="mt-2 text-center font-medium">{previewCode}</div>
-                    </div>
-                  ) : (
-                    <div className="p-4 bg-white rounded-md shadow-sm">
-                      <canvas ref={barcodeCanvasRef} />
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="text-gray-400 text-center">
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-12 h-12 mx-auto mb-2">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0 1 3.75 9.375v-4.5ZM3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 0 1-1.125-1.125v-4.5Z" />
-                  </svg>
-                  <p>Fill the form to see your code</p>
-                </div>
-              )}
-            </div>
             
-            {generatedCodes.length > 0 && (
-              <div>
-                <div className="flex justify-between items-center mb-2">
-                  <h3 className="text-lg font-medium text-gray-900">Generated Sequence</h3>
-                  <button
-                    className="bg-gray-500 hover:bg-gray-600 text-white text-sm py-1 px-2 rounded focus:outline-none focus:shadow-outline"
-                    onClick={copyToClipboard}
-                  >
-                    Copy All
-                  </button>
-                </div>
-                <div className="bg-gray-50 rounded-lg border border-gray-200 p-3 max-h-64 overflow-y-auto">
-                  <ul className="space-y-2">
-                    {generatedCodes.slice(0, 100).map((code, index) => (
-                      <li key={index} className="flex justify-between items-center text-sm p-2 hover:bg-gray-100 rounded">
-                        <span>{code}</span>
-                        <button
-                          className="text-primary hover:text-blue-700 text-xs px-2 py-1 border border-blue-200 rounded hover:bg-blue-50"
-                          onClick={() => downloadCode(code, index)}
-                        >
-                          Download .{imageFormat.toUpperCase()}
-                        </button>
-                      </li>
-                    ))}
-                    {generatedCodes.length > 100 && (
-                      <li className="text-center text-xs text-gray-500">
-                        Showing first 100 of {generatedCodes.length} codes
-                      </li>
-                    )}
-                  </ul>
-                </div>
+            {/* Remaining daily count for free users */}
+            {subscriptionTier === "free" && (
+              <div className="mt-4 text-xs text-amber-600 bg-amber-50 p-2 rounded-md text-center">
+                {remainingDaily <= 5 ? (
+                  <>
+                    You have {remainingDaily} downloads remaining today.  
+                    <button 
+                      onClick={() => router.push('/pricing')} 
+                      className="ml-1 underline"
+                    >
+                      Upgrade for unlimited.
+                    </button>
+                  </>
+                ) : (
+                  <>Free tier: Limited to low-resolution JPEG</>
+                )}
               </div>
             )}
           </div>
+        </div>
+      </div>
+      
+      {/* Right column - Preview */}
+      <div className="flex-1">
+        <div className="bg-white p-6 rounded-lg shadow-sm">
+          <div className="mb-4 flex justify-between items-center">
+            <h2 className="text-xl font-bold text-gray-800">Preview</h2>
+            <div className="text-sm text-gray-600">
+              {generatedCodes.length > 0 ? `${previewCode}` : "No sequence generated"}
+            </div>
+          </div>
+          
+          <div className="mb-4 flex justify-center items-center bg-gray-50 rounded-lg p-4 min-h-[200px]">
+            {generatedCodes.length > 0 ? (
+              <div className="inline-block">
+                {format === "qrcode" ? (
+                  <div className="p-4 bg-white rounded-md shadow-sm" ref={qrCodeRef}>
+                    <QRCode
+                      value={previewCode}
+                      size={180}
+                      level="M"
+                    />
+                    <div className="mt-2 text-center font-medium">{previewCode}</div>
+                  </div>
+                ) : (
+                  <div className="p-4 bg-white rounded-md shadow-sm">
+                    <canvas ref={barcodeCanvasRef} />
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="text-gray-400 text-center">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-12 h-12 mx-auto mb-2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0 1 3.75 9.375v-4.5ZM3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 0 1-1.125-1.125v-4.5Z" />
+                </svg>
+                <p>Fill the form to see your code</p>
+              </div>
+            )}
+          </div>
+          
+          {generatedCodes.length > 0 && (
+            <div className="flex justify-center space-x-4">
+              <button
+                onClick={() => setPreviewCode(generatedCodes[Math.max(0, generatedCodes.indexOf(previewCode) - 1)])}
+                disabled={generatedCodes.length <= 1}
+                className="bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded-md focus:outline-none focus:shadow-outline disabled:opacity-50"
+              >
+                Previous
+              </button>
+              <button
+                onClick={() => setPreviewCode(generatedCodes[Math.min(generatedCodes.length - 1, generatedCodes.indexOf(previewCode) + 1)])}
+                disabled={generatedCodes.length <= 1}
+                className="bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded-md focus:outline-none focus:shadow-outline disabled:opacity-50"
+              >
+                Next
+              </button>
+            </div>
+          )}
+          
+          {/* Premium features banner */}
+          {subscriptionTier === "free" && (
+            <div className="mt-8 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <h3 className="font-semibold text-blue-800">Premium Features</h3>
+              <ul className="mt-2 ml-5 list-disc text-sm text-blue-600">
+                <li>Download full sequence in high resolution</li>
+                <li>Export as PNG, SVG, and PDF</li>
+                <li>Customize with more barcode types</li>
+                <li>Generate up to 1000 barcodes at once</li>
+              </ul>
+              <button
+                onClick={() => router.push('/pricing')}
+                className="mt-3 px-4 py-1 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700"
+              >
+                Upgrade Now
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>

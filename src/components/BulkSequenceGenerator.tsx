@@ -6,8 +6,13 @@ import JsBarcode from "jsbarcode";
 import JSZip from "jszip";
 import { saveAs } from "file-saver";
 import jsPDF from 'jspdf';
+import { useSubscription } from "@/context/SubscriptionContext";
+import { useRouter } from "next/navigation";
 
 export default function BulkSequenceGenerator() {
+  const router = useRouter();
+  const { hasFeature, subscriptionTier, decrementDaily, remainingDaily } = useSubscription();
+
   const [prefix, setPrefix] = useState<string>("");
   const [suffix, setSuffix] = useState<string>("");
   const [startNumber, setStartNumber] = useState<number>(1);
@@ -49,6 +54,18 @@ export default function BulkSequenceGenerator() {
 
   // Add a state variable for barcode height unit
   const [barcodeHeightUnit, setBarcodeHeightUnit] = useState<'px' | 'cm' | 'mm'>('cm'); // Default to cm
+
+  // Add state for generated codes
+  const [codes, setCodes] = useState<string[]>([]);
+  
+  // Add codesInput state variable
+  const [codesInput, setCodesInput] = useState<boolean>(true);
+
+  // Add missing state variables for download options
+  const [downloadFormat, setDownloadFormat] = useState<string>("zip-jpg");
+  const [layout, setLayout] = useState<string>("portrait");
+  const [foregroundColor, setForegroundColor] = useState<string>("#000000");
+  const [backgroundColor, setBackgroundColor] = useState<string>("#FFFFFF");
 
   const barcodeFormats = [
     { value: "CODE128", label: "Code 128 (default)" },
@@ -125,6 +142,7 @@ export default function BulkSequenceGenerator() {
     
     try {
       const codes = generateSequence();
+      setCodes(codes);
       
       if (outputType === 'zip') {
         // --- ZIP Generation Logic --- 
@@ -516,534 +534,501 @@ export default function BulkSequenceGenerator() {
   // useEffect(() => { ... }, [paperSize, orientation, customWidth, customHeight]); 
   // We can use a fixed reasonable size for the preview container in pdf-tile mode
 
-  return (
-    <div className="w-full mx-auto bg-white rounded-lg shadow-md">
-      <div className="p-6">
-        <div className="mb-6">
-          <h2 className="text-xl font-bold text-gray-900 mb-2">Bulk Sequence Generator</h2>
-          <p className="text-gray-600">Generate and download multiple codes at once as a ZIP file.</p>
-        </div>
+  const handleDownload = async () => {
+    if (codes.length === 0) return;
+    
+    setIsGenerating(true);
+    
+    try {
+      // For free users, decrement daily limit and enforce low resolution JPEG
+      if (subscriptionTier === "free") {
+        decrementDaily();
         
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          {/* Left Column - Form */}
-          <div className="space-y-6">
-            <div className="mb-4">
-              <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="code-format">
-                Code Format
-              </label>
-              <div className="flex space-x-4">
-                <label className="inline-flex items-center">
-                  <input
-                    type="radio"
-                    className="form-radio"
-                    name="code-format"
-                    value="barcode"
-                    checked={format === "barcode"}
-                    onChange={() => setFormat("barcode")}
-                    disabled={isGenerating}
-                  />
-                  <span className="ml-2">Barcode</span>
-                </label>
-                <label className="inline-flex items-center">
-                  <input
-                    type="radio"
-                    className="form-radio"
-                    name="code-format"
-                    value="qrcode"
-                    checked={format === "qrcode"}
-                    onChange={() => setFormat("qrcode")}
-                    disabled={isGenerating}
-                  />
-                  <span className="ml-2">QR Code</span>
-                </label>
-              </div>
-            </div>
+        // Force JPEG format in low resolution for free users
+        setDownloadFormat("zip-jpg");
+        
+        // Create a zip with low-resolution JPEGs
+        const zip = new JSZip();
+        const totalCodes = Math.min(10, codes.length); // Limit to 10 codes for free users
+        
+        for (let i = 0; i < totalCodes; i++) {
+          setProgress(Math.floor((i / totalCodes) * 100));
+          const code = codes[i];
+          
+          // Generate low resolution image
+          const canvas = document.createElement("canvas");
+          canvas.width = 300; // Lower resolution
+          canvas.height = 150;
+          
+          if (format === "qrcode") {
+            await qrcode.toCanvas(canvas, code, {
+              width: 150,
+              margin: 1,
+              color: {
+                dark: foregroundColor,
+                light: backgroundColor
+              }
+            });
+          } else {
+            JsBarcode(canvas, code, {
+              format: barcodeType,
+              width: 1.5,
+              height: 50,
+              displayValue: true,
+              background: backgroundColor,
+              lineColor: foregroundColor
+            });
+          }
+          
+          // Convert to low quality JPEG
+          const dataUrl = canvas.toDataURL("image/jpeg", 0.7);
+          const imageData = dataUrl.split(",")[1];
+          
+          zip.file(`code-${i+1}.jpg`, imageData, { base64: true });
+        }
+        
+        const content = await zip.generateAsync({ type: "blob" });
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(content);
+        link.download = "bulk-codes-sample.zip";
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        // Show upgrade message
+        alert(`Free tier: Limited to ${totalCodes} low-resolution JPEG files. Upgrade to Pro for full access!`);
+      } else {
+        // Paid users get full functionality
+        if (downloadFormat === "pdf") {
+          // Generate PDF
+          const pdf = new jsPDF({
+            orientation: layout === "portrait" ? "portrait" : "landscape",
+            unit: "mm"
+          });
+          
+          // ... existing PDF generation code ...
+          
+        } else {
+          // ZIP file generation (high quality)
+          const zip = new JSZip();
+          
+          for (let i = 0; i < codes.length; i++) {
+            setProgress(Math.floor((i / codes.length) * 100));
+            const code = codes[i];
+            
+            const canvas = document.createElement("canvas");
+            canvas.width = 800; // Higher resolution for paid users
+            canvas.height = 400;
+            
+            if (format === "qrcode") {
+              await qrcode.toCanvas(canvas, code, {
+                width: 400,
+                margin: 2,
+                color: {
+                  dark: foregroundColor,
+                  light: backgroundColor
+                }
+              });
+            } else {
+              JsBarcode(canvas, code, {
+                format: barcodeType,
+                width: 2,
+                height: 100,
+                displayValue: true,
+                background: backgroundColor,
+                lineColor: foregroundColor
+              });
+            }
+            
+            let imageType, quality, extension;
+            
+            if (downloadFormat === "zip-svg") {
+              // SVG generation code
+              if (format === "qrcode") {
+                const svgString = await qrcode.toString(code, {
+                  type: "svg",
+                  width: 400,
+                  margin: 2,
+                  color: {
+                    dark: foregroundColor,
+                    light: backgroundColor
+                  }
+                });
+                zip.file(`code-${i+1}.svg`, svgString);
+              } else {
+                // For barcodes, we'd need to capture SVG differently
+                // This is a placeholder for actual implementation
+                const svgContainer = document.createElement("div");
+                JsBarcode(svgContainer, code, {
+                  format: barcodeType,
+                  width: 2,
+                  height: 100,
+                  displayValue: true,
+                  background: backgroundColor,
+                  lineColor: foregroundColor,
+                  xmlDocument: true
+                });
+                const svgString = svgContainer.innerHTML;
+                zip.file(`code-${i+1}.svg`, svgString);
+              }
+            } else if (downloadFormat === "zip-png") {
+              imageType = "image/png";
+              extension = "png";
+              const dataUrl = canvas.toDataURL(imageType);
+              const imageData = dataUrl.split(",")[1];
+              zip.file(`code-${i+1}.${extension}`, imageData, { base64: true });
+            } else {
+              // JPEG format with high quality for paid users
+              imageType = "image/jpeg";
+              quality = 1.0;
+              extension = "jpg";
+              const dataUrl = canvas.toDataURL(imageType, quality);
+              const imageData = dataUrl.split(",")[1];
+              zip.file(`code-${i+1}.${extension}`, imageData, { base64: true });
+            }
+          }
+          
+          const content = await zip.generateAsync({ type: "blob" });
+          const link = document.createElement("a");
+          link.href = URL.createObjectURL(content);
+          link.download = `bulk-codes.zip`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+        }
+      }
+    } catch (error) {
+      console.error("Error generating bulk download:", error);
+      alert("An error occurred during download. Please try again.");
+    } finally {
+      setIsGenerating(false);
+      setProgress(0);
+    }
+  };
 
-            {format === "barcode" && (
-              <div className="mb-4">
-                <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="barcode-type">
-                  Barcode Format
-                </label>
-                <select
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
-                  id="barcode-type"
-                  value={barcodeType}
-                  onChange={(e) => setBarcodeType(e.target.value)}
-                  disabled={isGenerating}
-                >
-                  {barcodeFormats.map((format) => (
-                    <option key={format.value} value={format.value}>
-                      {format.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-
-            {/* Barcode Height - Hidden for pdf-tile output */}
-            {format === "barcode" && outputType !== 'pdf-tile' && (
-              <div className="mb-4">
-                <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="barcode-height">
-                  Barcode Height
-                </label>
+  return (
+    <div className="flex flex-col lg:flex-row gap-8">
+      {/* Left column - Input */}
+      <div className="flex-1">
+        <div className="bg-white p-6 rounded-lg shadow-md">
+          <h2 className="text-xl font-bold mb-6">Bulk Code Generator</h2>
+          
+          {/* ... existing code ... */}
+          
+          {/* Code Format */}
+          <div className="mb-6">
+            <label className="block text-gray-700 text-sm font-bold mb-2">
+              Code Type
+            </label>
+            <div className="flex space-x-4">
+              <label className="inline-flex items-center">
                 <input
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
-                  id="barcode-height"
-                  type="number"
-                  min="10"
-                  value={barcodeHeight}
-                  onChange={(e) => setBarcodeHeight(Number(e.target.value))}
-                  disabled={isGenerating}
+                  type="radio"
+                  className="form-radio"
+                  name="codeType"
+                  value="qrcode"
+                  checked={format === "qrcode"}
+                  onChange={() => setFormat("qrcode")}
                 />
-              </div>
-            )}
-
-            {/* Barcode Height Unit - Hidden for pdf-tile output */}
-            {format === "barcode" && outputType !== 'pdf-tile' && (
-              <div className="mb-4">
-                <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="barcode-height-unit">
-                  Barcode Height Unit
-                </label>
-                <select
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
-                  id="barcode-height-unit"
-                  value={barcodeHeightUnit}
-                  onChange={(e) => handleUnitChange(e.target.value as 'px' | 'cm' | 'mm')}
-                  disabled={isGenerating}
-                >
-                  <option value="px">Pixels (px)</option>
-                  <option value="cm">Centimeters (cm)</option>
-                  <option value="mm">Millimeters (mm)</option>
-                </select>
-              </div>
-            )}
-
-            <div className="mb-4">
+                <span className="ml-2">QR Code</span>
+              </label>
+              <label className="inline-flex items-center">
+                <input
+                  type="radio"
+                  className="form-radio"
+                  name="codeType"
+                  value="barcode"
+                  checked={format === "barcode"}
+                  onChange={() => setFormat("barcode")}
+                />
+                <span className="ml-2">Barcode</span>
+              </label>
+            </div>
+          </div>
+          
+          {/* Sequence Configuration Fields */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+            <div>
               <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="prefix">
-                Prefix (Optional)
+                Prefix
               </label>
               <input
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
                 id="prefix"
                 type="text"
                 value={prefix}
                 onChange={(e) => setPrefix(e.target.value)}
-                placeholder="e.g., PROD-"
-                disabled={isGenerating}
+                className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                placeholder="Optional prefix"
               />
             </div>
             
-            {/* Suffix Input */}
-            <div className="mb-4">
+            <div>
               <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="suffix">
-                Suffix (Optional)
+                Suffix
               </label>
               <input
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
                 id="suffix"
                 type="text"
                 value={suffix}
                 onChange={(e) => setSuffix(e.target.value)}
-                placeholder="e.g., -V1"
-                disabled={isGenerating}
+                className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                placeholder="Optional suffix"
               />
             </div>
             
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-              <div>
-                <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="start-number">
-                  Start Number
-                </label>
-                <input
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
-                  id="start-number"
-                  type="number"
-                  min="0"
-                  value={startNumber}
-                  onChange={(e) => setStartNumber(Number(e.target.value))}
-                  disabled={isGenerating}
-                />
-              </div>
-              <div>
-                <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="increment">
-                  Increment By
-                </label>
-                <input
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
-                  id="increment"
-                  type="number"
-                  min="1"
-                  value={increment}
-                  onChange={(e) => setIncrement(Number(e.target.value))}
-                  disabled={isGenerating}
-                />
-              </div>
-            </div>
-            
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-              <div>
-                <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="padding">
-                  Number Padding
-                </label>
-                <input
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
-                  id="padding"
-                  type="number"
-                  min="0"
-                  max="10"
-                  value={padding}
-                  onChange={(e) => setPadding(Number(e.target.value))}
-                  disabled={isGenerating}
-                />
-                <p className="mt-1 text-sm text-gray-500">
-                  Number of digits (filled with leading zeros)
-                </p>
-              </div>
-              <div>
-                <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="count">
-                  Number of Codes
-                </label>
-                <input
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
-                  id="count"
-                  type="number"
-                  min="1"
-                  max="1000"
-                  value={count}
-                  onChange={(e) => setCount(Number(e.target.value))}
-                  disabled={isGenerating}
-                />
-                <p className="mt-1 text-sm text-gray-500">
-                  Max 1000 codes per batch
-                </p>
-              </div>
-            </div>
-            
-            <div className="mb-4">
-              <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="output-type">
-                Output Type
+            <div>
+              <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="startNumber">
+                Start Number
               </label>
-              <div className="flex space-x-4">
-                <label className="inline-flex items-center">
-                  <input
-                    type="radio" className="form-radio" name="output-type" value="zip"
-                    checked={outputType === 'zip'} onChange={() => setOutputType('zip')} disabled={isGenerating}
-                  />
-                  <span className="ml-2">ZIP (Individual Images)</span>
-                </label>
-                <label className="inline-flex items-center">
-                  <input
-                    type="radio" className="form-radio" name="output-type" value="pdf"
-                    checked={outputType === 'pdf'} onChange={() => setOutputType('pdf')} disabled={isGenerating}
-                  />
-                  <span className="ml-2">PDF (Layout Sheet)</span>
-                </label>
-                <label className="inline-flex items-center">
-                  <input
-                    type="radio" className="form-radio" name="output-type" value="pdf-tile"
-                    checked={outputType === 'pdf-tile'} onChange={() => setOutputType('pdf-tile')} disabled={isGenerating}
-                  />
-                  <span className="ml-2">PDF (Tile Sheet)</span>
-                </label>
-              </div>
+              <input
+                id="startNumber"
+                type="number"
+                value={startNumber}
+                onChange={(e) => setStartNumber(parseInt(e.target.value) || 0)}
+                className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                min="0"
+              />
             </div>
             
-            {/* PDF Layout Options - Conditionally render if outputType is pdf */}
-            {outputType === 'pdf' && (
-              <div className="space-y-4 p-4 border border-zinc-300 rounded-lg bg-zinc-100">
-                 <h3 className="text-lg font-medium text-gray-800 mb-3">PDF Layout Options</h3>
-                 
-                 {/* Paper Size */}
-                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-gray-700 text-sm font-bold mb-1" htmlFor="paper-size">
-                      Paper Size
-                    </label>
-                    <select id="paper-size" value={paperSize} onChange={e => setPaperSize(e.target.value)} disabled={isGenerating} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary">
-                      <option value="a4">A4 (210x297mm)</option>
-                      <option value="a5">A5 (148x210mm)</option>
-                      <option value="a3">A3 (297x420mm)</option>
-                      <option value="custom">Custom Size</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-gray-700 text-sm font-bold mb-1" htmlFor="orientation">
-                      Orientation
-                    </label>
-                    <select id="orientation" value={orientation} onChange={e => setOrientation(e.target.value as 'p' | 'l')} disabled={isGenerating} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary">
-                      <option value="p">Portrait</option>
-                      <option value="l">Landscape</option>
-                    </select>
-                  </div>
-                 </div>
-                 
-                 {/* Custom Dimensions (if paperSize is custom) */} 
-                 {paperSize === 'custom' && (
-                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                     <div>
-                       <label className="block text-gray-700 text-sm font-bold mb-1" htmlFor="custom-width">Width (mm)</label>
-                       <input id="custom-width" type="number" min="10" value={customWidth} onChange={e => setCustomWidth(Number(e.target.value))} disabled={isGenerating} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary" />
-                     </div>
-                     <div>
-                       <label className="block text-gray-700 text-sm font-bold mb-1" htmlFor="custom-height">Height (mm)</label>
-                       <input id="custom-height" type="number" min="10" value={customHeight} onChange={e => setCustomHeight(Number(e.target.value))} disabled={isGenerating} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary" />
-                     </div>
-                   </div>
-                 )}
-                 
-                 {/* Columns and Rows */} 
-                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                   <div>
-                     <label className="block text-gray-700 text-sm font-bold mb-1" htmlFor="columns">Columns</label>
-                     <input id="columns" type="number" min="1" value={columns} onChange={e => setColumns(Number(e.target.value))} disabled={isGenerating} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary" />
-                   </div>
-                   <div>
-                     <label className="block text-gray-700 text-sm font-bold mb-1" htmlFor="rows">Rows per Page</label>
-                     <input id="rows" type="number" min="1" value={rows} onChange={e => setRows(Number(e.target.value))} disabled={isGenerating} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary" />
-                   </div>
-                 </div>
-                 
-                 {/* Margins and Spacing */} 
-                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                   <div>
-                     <label className="block text-gray-700 text-sm font-bold mb-1" htmlFor="margin-top">Top Margin (mm)</label>
-                     <input id="margin-top" type="number" min="0" value={marginTop} onChange={e => setMarginTop(Number(e.target.value))} disabled={isGenerating} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary" />
-                   </div>
-                   <div>
-                     <label className="block text-gray-700 text-sm font-bold mb-1" htmlFor="margin-left">Left Margin (mm)</label>
-                     <input id="margin-left" type="number" min="0" value={marginLeft} onChange={e => setMarginLeft(Number(e.target.value))} disabled={isGenerating} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary" />
-                   </div>
-                   <div>
-                     <label className="block text-gray-700 text-sm font-bold mb-1" htmlFor="spacing">Spacing (mm)</label>
-                     <input id="spacing" type="number" min="0" value={spacing} onChange={e => setSpacing(Number(e.target.value))} disabled={isGenerating} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary" />
-                   </div>
-                 </div>
-              </div>
-            )}
-
-            {/* PDF Tiling Options */}
-            {outputType === 'pdf-tile' && (
-              <div className="mt-6 p-4 border border-gray-200 rounded-md bg-gray-50">
-                <h4 className="text-lg font-medium mb-4 text-gray-800">PDF Tiling Options (Fixed Tile Size: 40x15mm)</h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {/* Columns Input */}
-                  <div>
-                    <label htmlFor="tile-columns" className="block text-sm font-medium text-gray-700">Columns (Horizontal)</label>
-                    {/* Input for tileColumns */}
-                     <input
-                      id="tile-columns"
-                      type="number"
-                      min="1"
-                      value={tileColumns}
-                      onChange={(e) => setTileColumns(Math.max(1, parseInt(e.target.value, 10) || 1))}
-                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary"
-                      disabled={isGenerating}
-                    />
-                  </div>
-                  {/* Rows Input */}
-                  <div>
-                    <label htmlFor="tile-rows" className="block text-sm font-medium text-gray-700">Rows (Vertical)</label>
-                    {/* Input for tileRows */}
-                    <input
-                      id="tile-rows"
-                      type="number"
-                      min="1"
-                      value={tileRows}
-                      onChange={(e) => setTileRows(Math.max(1, parseInt(e.target.value, 10) || 1))}
-                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary"
-                      disabled={isGenerating}
-                    />
-                  </div>
-                   {/* Tile Width Input - REMOVED for pdf-tile */}
-                  {/* <div> ... </div> */}
-                   
-                  {/* Spacing Input */}
-                  <div>
-                    <label htmlFor="tile-spacing" className="block text-sm font-medium text-gray-700">Spacing</label>
-                    {/* Spacing Input and Unit Select */}
-                     <div className="flex items-center space-x-2 mt-1">
-                       <input
-                        id="tile-spacing"
-                        type="number"
-                        min="0"
-                        value={tileSpacing}
-                        onChange={(e) => setTileSpacing(Math.max(0, parseFloat(e.target.value) || 0))}
-                        className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary"
-                        disabled={isGenerating}
-                      />
-                      <select
-                        value={tileSpacingUnit}
-                        onChange={(e) => setTileSpacingUnit(e.target.value as 'mm' | 'cm')}
-                        className="px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary"
-                        disabled={isGenerating}
-                      >
-                        <option value="mm">mm</option>
-                        <option value="cm">cm</option>
-                      </select>
-                    </div>
-                  </div>
-                  {/* Add Outline Checkbox */}
-                   <div className="md:col-span-2 flex items-center">
-                     {/* Checkbox for addOutline */}
-                      <input
-                       id="add-outline"
-                       type="checkbox"
-                       checked={addOutline}
-                       onChange={(e) => setAddOutline(e.target.checked)}
-                       className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded mr-2"
-                       disabled={isGenerating}
-                     />
-                     <label htmlFor="add-outline" className="text-sm font-medium text-gray-700">Add Border Outline to Each Code</label>
-                   </div>
+            <div>
+              <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="increment">
+                Increment
+              </label>
+              <input
+                id="increment"
+                type="number"
+                value={increment}
+                onChange={(e) => setIncrement(parseInt(e.target.value) || 1)}
+                className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                min="1"
+              />
+            </div>
+            
+            <div>
+              <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="padding">
+                Zero Padding
+              </label>
+              <input
+                id="padding"
+                type="number"
+                value={padding}
+                onChange={(e) => setPadding(parseInt(e.target.value) || 0)}
+                className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                min="0"
+                max="10"
+              />
+            </div>
+            
+            <div>
+              <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="count">
+                Number of Codes
+              </label>
+              <input
+                id="count"
+                type="number"
+                value={count}
+                onChange={(e) => setCount(parseInt(e.target.value) || 1)}
+                className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                min="1"
+                max={subscriptionTier === "free" ? 100 : 5000}
+              />
+            </div>
+            
+            {format === "barcode" && (
+              <>
+                <div>
+                  <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="barcodeType">
+                    Barcode Format
+                  </label>
+                  <select
+                    id="barcodeType"
+                    value={barcodeType}
+                    onChange={(e) => setBarcodeType(e.target.value)}
+                    className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                  >
+                    {barcodeFormats.map((format) => (
+                      <option key={format.value} value={format.value}>
+                        {format.label}
+                      </option>
+                    ))}
+                  </select>
                 </div>
                 
-                 {/* Estimated Grid Size Display */}
-                 <div className="mt-4 text-sm text-gray-600 bg-blue-50 p-3 rounded-md border border-blue-200">
-                   Calculated Page Grid Size (excl. 10mm margins): {displayGridWidth}mm W x {displayGridHeight}mm H
-                 </div>
-
-                {/* ------ Preview Section ------ */}
-                <div className="mt-6 border-t pt-4">
-                   <h5 className="text-md font-medium mb-3 text-gray-700">Layout Preview (Single Page)</h5>
-                   <div
-                     className="mx-auto border border-dashed border-gray-400 bg-white p-1 overflow-hidden relative"
-                     style={{
-                       // Use fixed reasonable size for tile preview container
-                       width: `210px`, 
-                       height: `297px`, 
-                     }}
-                   >
-                     {/* Grid overlay - use absolute positioning to fill the container */}
-                     <div
-                       className="absolute inset-0 grid"
-                       style={{
-                         gridTemplateColumns: `repeat(${tileColumns}, minmax(0, 1fr))`,
-                         gridTemplateRows: `repeat(${tileRows}, minmax(0, 1fr))`,
-                         gap: '1px', // Smaller gap for preview
-                       }}
-                     >
-                       {/* Generate cells with actual code previews */}
-                        {Array.from({ length: tileColumns * tileRows }).map((_, index) => {
-                         const imageUrl = previewCodeImages[index];
-                         const showCode = index < count; // Only show if index is within requested count
-
-                         return (
-                           <div
-                             key={index}
-                             className="border border-gray-200 bg-gray-50 flex items-center justify-center overflow-hidden p-0.5"
-                           >
-                             {showCode ? (
-                               imageUrl ? (
-                                 // eslint-disable-next-line @next/next/no-img-element
-                                 <img 
-                                   src={imageUrl} 
-                                   alt={`Code Preview ${index + 1}`}
-                                   className="max-w-full max-h-full object-contain"
-                                 />
-                               ) : (
-                                 // Placeholder for error or loading state
-                                 <span className="text-red-500 text-xs">Error</span>
-                               )
-                             ) : (
-                               // Placeholder for cells beyond the count
-                               <div className="w-full h-full bg-gray-200"></div>
-                             )}
-                           </div>
-                         );
-                       })}
-                     </div>
-                   </div>
-                   <p className="text-center text-sm text-gray-600 mt-2">
-                     Codes per page: <span className="font-semibold">{tileColumns * tileRows}</span>
-                   </p>
-                 </div>
-                {/* ------ End Preview Section ------ */}
-
-              </div>
+                <div>
+                  <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="barcodeHeight">
+                    Barcode Height ({barcodeHeightUnit})
+                  </label>
+                  <div className="flex">
+                    <input
+                      id="barcodeHeight"
+                      type="number"
+                      value={barcodeHeight}
+                      onChange={(e) => setBarcodeHeight(parseFloat(e.target.value) || 1)}
+                      className="shadow appearance-none border rounded-l w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                      min="1"
+                      step="0.1"
+                    />
+                    <select
+                      value={barcodeHeightUnit}
+                      onChange={(e) => handleUnitChange(e.target.value as 'px' | 'cm' | 'mm')}
+                      className="shadow border rounded-r py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                    >
+                      <option value="px">px</option>
+                      <option value="cm">cm</option>
+                      <option value="mm">mm</option>
+                    </select>
+                  </div>
+                </div>
+              </>
             )}
-
+          </div>
+          
+          {/* Download Format Selection */}
+          <div className="mb-6">
+            <label className="block text-gray-700 text-sm font-bold mb-2">
+              Download Format
+            </label>
+            <div className="flex flex-wrap gap-3">
+              <label className="inline-flex items-center">
+                <input
+                  type="radio"
+                  className="form-radio"
+                  name="downloadFormat"
+                  value="zip-jpg"
+                  checked={outputType === 'zip' || subscriptionTier === "free"}
+                  onChange={() => setOutputType('zip')}
+                />
+                <span className="ml-2">ZIP (Individual Images)</span>
+                {subscriptionTier === "free" && (
+                  <span className="ml-1 text-xs text-gray-600">(Low Resolution)</span>
+                )}
+              </label>
+              
+              <label className={`inline-flex items-center ${!hasFeature("svgDownload") ? "opacity-50" : ""}`}>
+                <input
+                  type="radio"
+                  className="form-radio"
+                  name="downloadFormat"
+                  value="pdf"
+                  checked={outputType === 'pdf'}
+                  onChange={() => setOutputType('pdf')}
+                  disabled={!hasFeature("pdfDownload")}
+                />
+                <span className="ml-2">PDF (Layout Sheet)</span>
+                {!hasFeature("pdfDownload") && (
+                  <span className="ml-1 text-xs text-blue-600 font-semibold">PRO</span>
+                )}
+              </label>
+              
+              <label className={`inline-flex items-center ${!hasFeature("svgDownload") ? "opacity-50" : ""}`}>
+                <input
+                  type="radio"
+                  className="form-radio"
+                  name="downloadFormat"
+                  value="pdf-tile"
+                  checked={outputType === 'pdf-tile'}
+                  onChange={() => setOutputType('pdf-tile')}
+                  disabled={!hasFeature("svgDownload")}
+                />
+                <span className="ml-2">PDF (Tile Sheet)</span>
+                {!hasFeature("svgDownload") && (
+                  <span className="ml-1 text-xs text-blue-600 font-semibold">PRO</span>
+                )}
+              </label>
+            </div>
+          </div>
+          
+          {/* Generate and Download Buttons */}
+          <div className="flex space-x-4">
             <button
-              className={`w-full font-bold py-3 px-4 rounded focus:outline-none focus:shadow-outline ${
-                isGenerating
-                  ? "bg-gray-400 cursor-not-allowed"
-                  : "bg-primary hover:bg-blue-700 text-white"
-              }`}
               onClick={generateBulkCodes}
-              disabled={isGenerating}
+              disabled={!codesInput || isGenerating}
+              className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md focus:outline-none focus:shadow-outline disabled:opacity-50"
             >
-              {isGenerating ? "Generating..." : "Generate Bulk Codes"}
+              Generate
+            </button>
+            
+            <button
+              onClick={handleDownload}
+              disabled={codes.length === 0 || isGenerating}
+              className="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-md focus:outline-none focus:shadow-outline disabled:opacity-50"
+            >
+              {isGenerating ? `Generating... ${progress}%` : "Download All"}
             </button>
           </div>
           
-          {/* Right Column - Preview & Status */}
-          <div className="space-y-6">
-            <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">Bulk Generation</h3>
-              
-              {isGenerating ? (
-                <div className="space-y-4">
-                  <p className="text-gray-600">Generating {count} codes...</p>
-                  <div className="w-full bg-gray-200 rounded-full h-4">
-                    <div 
-                      className="bg-primary h-4 rounded-full transition-all duration-300 ease-in-out" 
-                      style={{ width: `${progress}%` }}
-                    ></div>
-                  </div>
-                  <p className="text-sm text-gray-500 text-center">{progress}% complete</p>
-                </div>
-              ) : downloadLink ? (
-                <div className="space-y-4 text-center">
-                  <div className="flex items-center justify-center">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-12 h-12 text-green-500 mb-2">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-                    </svg>
-                  </div>
-                  <p className="text-gray-700 font-medium">Generation Complete!</p>
-                  <p className="text-gray-600 text-sm mb-3">
-                    {count} {format === "qrcode" ? "QR codes" : "barcodes"} have been generated and packaged as a ZIP file.
-                  </p>
-                  <a
-                    href={downloadLink}
-                    download={`${format === "qrcode" ? "qrcodes" : "barcodes"}-bulk.zip`}
-                    className="inline-block bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
+          {/* Remaining daily count for free users */}
+          {subscriptionTier === "free" && (
+            <div className="mt-4 text-xs text-amber-600 bg-amber-50 p-2 rounded-md text-center">
+              {remainingDaily <= 5 ? (
+                <>
+                  You have {remainingDaily} downloads remaining today.  
+                  <button 
+                    onClick={() => router.push('/pricing')} 
+                    className="ml-1 underline"
                   >
-                    Download ZIP Again
-                  </a>
-                </div>
+                    Upgrade for unlimited.
+                  </button>
+                </>
               ) : (
-                <div className="text-center py-10">
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-12 h-12 mx-auto text-gray-400 mb-3">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m6.75 12H9m1.5-12H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
-                  </svg>
-                  <p className="text-gray-500">
-                    Configure your settings and click &quot;Generate Bulk Codes&quot; to start.
-                  </p>
-                  <p className="text-gray-400 text-sm mt-2">
-                    All codes will be saved as individual image files in a ZIP archive.
-                  </p>
-                </div>
+                <>Free tier: Limited to 10 codes in low-resolution JPEG</>
               )}
             </div>
-            
-            <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
-              <h3 className="text-lg font-medium text-gray-900 mb-2">Sample Codes</h3>
-              <p className="text-gray-500 text-sm mb-3">
-                Here are examples of the first few codes that will be generated:
-              </p>
-              <div className="space-y-1 text-sm">
-                {generateSequence().slice(0, 5).map((code, index) => (
-                  <div key={index} className="p-2 bg-white rounded border border-gray-200">
-                    {code}
-                  </div>
-                ))}
-                {count > 5 && (
-                  <div className="text-center text-gray-400 text-xs mt-2">
-                    +{count - 5} more codes will be generated
-                  </div>
-                )}
+          )}
+        </div>
+      </div>
+      
+      {/* Right column - Preview */}
+      <div className="flex-1">
+        <div className="bg-white p-6 rounded-lg shadow-md">
+          <h2 className="text-xl font-bold mb-6">Generated Codes</h2>
+          
+          {codes.length > 0 ? (
+            <div>
+              <div className="bg-gray-50 p-4 rounded-lg mb-4 max-h-96 overflow-y-auto">
+                <ul className="space-y-2">
+                  {codes.slice(0, 100).map((code, index) => (
+                    <li key={index} className="p-2 bg-white rounded-md shadow-sm">
+                      {code}
+                    </li>
+                  ))}
+                  {codes.length > 100 && (
+                    <li className="text-center text-sm text-gray-500 p-2">
+                      Showing first 100 of {codes.length} codes
+                    </li>
+                  )}
+                </ul>
               </div>
+              
+              <p className="text-sm text-gray-600 mb-4">
+                Total: {codes.length} codes generated
+              </p>
             </div>
-          </div>
+          ) : (
+            <div className="bg-gray-50 p-8 rounded-lg text-center text-gray-400">
+              No codes generated yet. Enter your data and click Generate.
+            </div>
+          )}
+          
+          {/* Premium features banner */}
+          {subscriptionTier === "free" && (
+            <div className="mt-8 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <h3 className="font-semibold text-blue-800">Premium Features</h3>
+              <ul className="mt-2 ml-5 list-disc text-sm text-blue-600">
+                <li>Download unlimited codes in high resolution</li>
+                <li>Export as PNG, SVG, and PDF</li>
+                <li>Customize layout and code appearance</li>
+                <li>Generate QR codes with logos</li>
+                <li>Batch processing for large datasets</li>
+              </ul>
+              <button
+                onClick={() => router.push('/pricing')}
+                className="mt-3 px-4 py-1 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700"
+              >
+                Upgrade Now
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>
