@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSubscription } from "@/context/SubscriptionContext";
 import { CheckIcon, XMarkIcon } from "@heroicons/react/24/outline";
-import { useAuth } from "@/context/AuthContext";
+import { useAuth } from "@/context/FirebaseAuthContext";
 
 const mockSavedCodes = [
   { id: 1, name: "Website QR", type: "qrcode", content: "https://example.com", createdAt: "2023-12-01" },
@@ -27,14 +27,15 @@ export default function DashboardPage() {
   const { subscriptionTier, hasFeature, remainingDaily } = useSubscription();
   const [savedCodes, setSavedCodes] = useState(mockSavedCodes);
   const [analytics, setAnalytics] = useState(mockAnalytics);
-  const { username, userEmail, isLoading } = useAuth();
+  const { user, loading } = useAuth();
 
   useEffect(() => {
-    // In a real app, you would fetch user data from your backend here
-    // For demo purposes, we're using mock data
-  }, []);
+    if (!loading && !user) {
+      router.push('/login');
+    }
+  }, [user, loading, router]);
 
-  if (isLoading) {
+  if (loading || !user) {
     return (
       <div className="max-w-5xl mx-auto px-4 py-8">
         <div className="animate-pulse">
@@ -45,6 +46,9 @@ export default function DashboardPage() {
       </div>
     );
   }
+
+  const username = user.displayName;
+  const userEmail = user.email;
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-8">
@@ -80,7 +84,7 @@ export default function DashboardPage() {
           <div className="p-5">
             <h3 className="text-lg font-semibold text-gray-800 mb-2">Create QR Code</h3>
             <p className="text-gray-600 mb-4">Create custom QR codes with your content and styling preferences.</p>
-            <Link href="/qrcode" className="text-indigo-600 font-medium hover:text-indigo-700">
+            <Link href="/#qrcode" className="text-indigo-600 font-medium hover:text-indigo-700">
               Create Now →
             </Link>
           </div>
@@ -95,7 +99,7 @@ export default function DashboardPage() {
           <div className="p-5">
             <h3 className="text-lg font-semibold text-gray-800 mb-2">Generate Barcode</h3>
             <p className="text-gray-600 mb-4">Create various types of barcodes for your business needs.</p>
-            <Link href="/barcode" className="text-blue-600 font-medium hover:text-blue-700">
+            <Link href="/#barcode" className="text-blue-600 font-medium hover:text-blue-700">
               Generate Now →
             </Link>
           </div>
@@ -110,7 +114,7 @@ export default function DashboardPage() {
           <div className="p-5">
             <h3 className="text-lg font-semibold text-gray-800 mb-2">Bulk Generator</h3>
             <p className="text-gray-600 mb-4">Generate multiple QR codes or barcodes in a single batch.</p>
-            <Link href="/bulk" className="text-green-600 font-medium hover:text-green-700">
+            <Link href="/#bulk" className="text-green-600 font-medium hover:text-green-700">
               Start Batch →
             </Link>
           </div>
@@ -126,13 +130,13 @@ export default function DashboardPage() {
           </div>
           <div className="flex flex-col sm:flex-row sm:justify-between pb-3 border-b border-gray-200">
             <span className="font-medium text-gray-600">Subscription</span>
-            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-              Pro
+            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${subscriptionTier === 'pro' ? 'bg-green-100 text-green-800' : subscriptionTier === 'business' ? 'bg-purple-100 text-purple-800' : 'bg-gray-100 text-gray-800'}`}>
+              {subscriptionTier.charAt(0).toUpperCase() + subscriptionTier.slice(1)}
             </span>
           </div>
           <div className="flex flex-col sm:flex-row sm:justify-between">
             <span className="font-medium text-gray-600">Member Since</span>
-            <span className="text-gray-800">{new Date().toLocaleDateString()}</span>
+            <span className="text-gray-800">{user.metadata.creationTime ? new Date(user.metadata.creationTime).toLocaleDateString() : "Not available"}</span>
           </div>
         </div>
       </div>
