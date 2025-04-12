@@ -6,15 +6,33 @@ import * as qrcode from "qrcode";
 import JsBarcode from "jsbarcode";
 import { createRoot } from 'react-dom/client';
 import jsPDF from 'jspdf';
-import { useSubscription } from "@/context/SubscriptionContext";
+import { useSubscription } from "../hooks/useSubscription";
+import { useTrackUsage } from "../hooks/useTrackUsage";
+import { hasFeatureAccess, getFeatureLimit } from '../lib/subscriptions';
+import SubscriptionCheck from './SubscriptionCheck';
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 type ImageFormat = 'png' | 'svg' | 'jpg' | 'eps' | 'pdf' | 'pdf-tile';
 
 export default function SequenceGenerator() {
   const router = useRouter();
-  // Add subscription context
-  const { hasFeature, subscriptionTier, decrementDaily, remainingDaily } = useSubscription();
+  // Use subscription context
+  const { 
+    subscriptionTier,
+    loading: subscriptionLoading,
+    error: subscriptionError
+  } = useSubscription();
+  
+  // Use tracking hook
+  const {
+    trackUsage,
+    isTracking,
+    error: trackingError,
+    canUseFeature,
+    getRemainingUsage,
+    isWithinUsageLimit
+  } = useTrackUsage();
   
   const [prefix, setPrefix] = useState<string>("");
   const [startNumber, setStartNumber] = useState<number>(1);
@@ -79,20 +97,52 @@ export default function SequenceGenerator() {
   }, [prefix, startNumber, padding, format, barcodeType, barcodeCanvasRef, suffix]);
 
   const generateSequence = () => {
-    const sequences = [];
+    // Validate input
+    if (!count || count <= 0) {
+      alert("Please enter a valid count greater than 0");
+      return [];
+    }
+
+    const feature = format === "qrcode" ? "qrCodesGenerated" : "barcodesGenerated";
+    
+    // Check if user can generate this many codes
+    if (subscriptionTier === "free" && !isWithinUsageLimit(feature, count)) {
+      alert(`You've reached your daily limit for ${format === "qrcode" ? "QR code" : "barcode"} generation.`);
+      router.push('/pricing');
+      return [];
+    }
+
+    // If user can proceed, track the usage
+    if (subscriptionTier === "free") {
+      if (format === "qrcode") {
+        trackUsage('qrCodesGenerated', count);
+      } else {
+        trackUsage('barcodesGenerated', count);
+      }
+    }
+
+    const newCodes = [];
     let currentNumber = startNumber;
     
     for (let i = 0; i < count; i++) {
       const paddedNumber = String(currentNumber).padStart(padding, '0');
       const code = `${prefix}${paddedNumber}${suffix}`;
-      sequences.push(code);
+      newCodes.push(code);
       currentNumber += increment;
     }
     
-    setGeneratedCodes(sequences);
-    return sequences;
+    setGeneratedCodes(newCodes);
+    return newCodes;
   };
 
+  // For a specific feature check
+  const canGenerateQRCodes = canUseFeature('qrCodesGenerated');
+  const canGenerateBarcodes = canUseFeature('barcodesGenerated');
+  
+  // For remaining usage
+  const remainingQRCodes = getRemainingUsage('qrCodesGenerated');
+  const remainingBarcodes = getRemainingUsage('barcodesGenerated');
+  
   const downloadCode = async (codeValue: string, index: number) => {
     try {
       const canvas = document.createElement("canvas");
@@ -257,9 +307,19 @@ export default function SequenceGenerator() {
     if (!barcodeCanvasRef.current || generatedCodes.length === 0) return;
     
     try {
-      // For free users, decrement daily limit and enforce low resolution JPEG
+      // For free users, check and track usage
       if (subscriptionTier === "free") {
-        decrementDaily();
+        const feature = format === "qrcode" ? "qrCodesGenerated" : "barcodesGenerated";
+        
+        // Check if user has enough remaining usage
+        if (!isWithinUsageLimit(feature, generatedCodes.length)) {
+          alert(`You've reached your daily limit for ${format === "qrcode" ? "QR code" : "barcode"} generation.`);
+          router.push('/pricing');
+          return;
+        }
+        
+        // If we can proceed, track the usage
+        trackUsage(feature, generatedCodes.length);
         
         // Create a zip with low-resolution JPEGs
         alert("Free tier: Files will be downloaded as low-resolution JPEGs");
@@ -288,11 +348,24 @@ export default function SequenceGenerator() {
         // Paid users get full sequence in high quality
         const canvas = barcodeCanvasRef.current;
         
-        // This is just a simulation - in a real app, you'd generate all codes and zip them
-        if (imageFormat === "svg" && hasFeature("svgDownload")) {
-          alert("SVG sequence export would be available here for Pro users");
-        } else if (imageFormat === "pdf" && hasFeature("pdfDownload")) {
-          alert("PDF sequence export would be available here for Pro users");
+        // Check permissions for the selected format
+        if ((imageFormat === "svg" && !canUseFeature("svgDownload")) ||
+            ((imageFormat === "pdf" || imageFormat === "pdf-tile") && !canUseFeature("pdfDownload")) ||
+            (imageFormat === "eps" && !canUseFeature("svgDownload")) ||
+            (imageFormat === "png" && !canUseFeature("noWatermark"))) {
+          // User doesn't have permission for this format
+          alert(`You need a Pro or Business subscription to download in ${imageFormat.toUpperCase()} format.`);
+          router.push('/pricing');
+          return;
+        }
+        
+        // Handle different formats
+        if (imageFormat === "svg") {
+          alert("SVG sequence export would be available here for Pro/Business users");
+        } else if (imageFormat === "pdf" || imageFormat === "pdf-tile") {
+          alert(`PDF ${imageFormat === "pdf-tile" ? "Tile " : ""}export would be available here for Pro/Business users`);
+        } else if (imageFormat === "eps") {
+          alert("EPS sequence export would be available here for Pro/Business users");
         } else {
           // High quality PNG or JPEG download
           const mimeType = imageFormat === "jpg" ? "image/jpeg" : "image/png";
@@ -488,82 +561,82 @@ export default function SequenceGenerator() {
                     )}
                   </label>
                   
-                  <label className={`inline-flex items-center ${!hasFeature("noWatermark") ? "opacity-50" : ""}`}>
+                  <label className={`inline-flex items-center ${!canUseFeature("noWatermark") ? "opacity-50" : ""}`}>
                     <input
                       type="radio"
                       className="form-radio"
                       name="image-format"
                       value="png"
                       checked={imageFormat === "png"}
-                      onChange={(e) => hasFeature("noWatermark") ? setImageFormat(e.target.value as ImageFormat) : router.push('/pricing')}
-                      disabled={!hasFeature("noWatermark")}
+                      onChange={(e) => canUseFeature("noWatermark") ? setImageFormat(e.target.value as ImageFormat) : router.push('/pricing')}
+                      disabled={!canUseFeature("noWatermark")}
                     />
                     <span className="ml-2">PNG</span>
-                    {!hasFeature("noWatermark") && (
+                    {!canUseFeature("noWatermark") && (
                       <span className="ml-1 text-xs text-blue-600 font-semibold">PRO</span>
                     )}
                   </label>
                   
-                  <label className={`inline-flex items-center ${!hasFeature("svgDownload") ? "opacity-50" : ""}`}>
+                  <label className={`inline-flex items-center ${!canUseFeature("svgDownload") ? "opacity-50" : ""}`}>
                     <input
                       type="radio"
                       className="form-radio"
                       name="image-format"
                       value="svg"
                       checked={imageFormat === "svg"}
-                      onChange={(e) => hasFeature("svgDownload") ? setImageFormat(e.target.value as ImageFormat) : router.push('/pricing')}
-                      disabled={!hasFeature("svgDownload")}
+                      onChange={(e) => canUseFeature("svgDownload") ? setImageFormat(e.target.value as ImageFormat) : router.push('/pricing')}
+                      disabled={!canUseFeature("svgDownload")}
                     />
                     <span className="ml-2">SVG</span>
-                    {!hasFeature("svgDownload") && (
+                    {!canUseFeature("svgDownload") && (
                       <span className="ml-1 text-xs text-blue-600 font-semibold">PRO</span>
                     )}
                   </label>
                   
-                  <label className={`inline-flex items-center ${!hasFeature("pdfDownload") ? "opacity-50" : ""}`}>
+                  <label className={`inline-flex items-center ${!canUseFeature('pdfDownload') ? "opacity-50" : ""}`}>
                     <input
                       type="radio"
-                      className="form-radio"
+                      className="form-radio text-blue-600"
                       name="image-format"
                       value="pdf"
                       checked={imageFormat === "pdf"}
-                      onChange={(e) => hasFeature("pdfDownload") ? setImageFormat(e.target.value as ImageFormat) : router.push('/pricing')}
-                      disabled={!hasFeature("pdfDownload")}
+                      onChange={(e) => canUseFeature('pdfDownload') ? setImageFormat(e.target.value as ImageFormat) : router.push('/pricing')}
+                      disabled={!canUseFeature('pdfDownload')}
                     />
                     <span className="ml-2">PDF</span>
-                    {!hasFeature("pdfDownload") && (
+                    {!canUseFeature('pdfDownload') && (
                       <span className="ml-1 text-xs text-blue-600 font-semibold">PRO</span>
                     )}
                   </label>
                   
-                  <label className={`inline-flex items-center ${!hasFeature("pdfDownload") ? "opacity-50" : ""}`}>
+                  <label className={`inline-flex items-center ${!canUseFeature('pdfDownload') ? "opacity-50" : ""}`}>
                     <input
                       type="radio"
-                      className="form-radio"
+                      className="form-radio text-blue-600"
                       name="image-format"
                       value="pdf-tile"
                       checked={imageFormat === "pdf-tile"}
-                      onChange={(e) => hasFeature("pdfDownload") ? setImageFormat(e.target.value as ImageFormat) : router.push('/pricing')}
-                      disabled={!hasFeature("pdfDownload")}
+                      onChange={(e) => canUseFeature('pdfDownload') ? setImageFormat(e.target.value as ImageFormat) : router.push('/pricing')}
+                      disabled={!canUseFeature('pdfDownload')}
                     />
                     <span className="ml-2">PDF Tile</span>
-                    {!hasFeature("pdfDownload") && (
+                    {!canUseFeature('pdfDownload') && (
                       <span className="ml-1 text-xs text-blue-600 font-semibold">PRO</span>
                     )}
                   </label>
                   
-                  <label className={`inline-flex items-center ${!hasFeature("svgDownload") ? "opacity-50" : ""}`}>
+                  <label className={`inline-flex items-center ${!canUseFeature("svgDownload") ? "opacity-50" : ""}`}>
                     <input
                       type="radio"
                       className="form-radio"
                       name="image-format"
                       value="eps"
                       checked={imageFormat === "eps"}
-                      onChange={(e) => hasFeature("svgDownload") ? setImageFormat(e.target.value as ImageFormat) : router.push('/pricing')}
-                      disabled={!hasFeature("svgDownload")}
+                      onChange={(e) => canUseFeature("svgDownload") ? setImageFormat(e.target.value as ImageFormat) : router.push('/pricing')}
+                      disabled={!canUseFeature("svgDownload")}
                     />
                     <span className="ml-2">EPS</span>
-                    {!hasFeature("svgDownload") && (
+                    {!canUseFeature("svgDownload") && (
                       <span className="ml-1 text-xs text-blue-600 font-semibold">PRO</span>
                     )}
                   </label>
@@ -605,8 +678,11 @@ export default function SequenceGenerator() {
               <button
                 className="bg-primary hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
                 onClick={generateSequence}
+                disabled={isTracking || (format === "qrcode" ? 
+                  getRemainingUsage('qrCodesGenerated') < count : 
+                  getRemainingUsage('barcodesGenerated') < count)}
               >
-                Generate Sequence
+                {isTracking ? 'Generating...' : `Generate ${count} ${format === "qrcode" ? "QR Codes" : "Barcodes"}`}
               </button>
               <div className="relative">
                 <button
@@ -623,15 +699,15 @@ export default function SequenceGenerator() {
             {/* Remaining daily count for free users */}
             {subscriptionTier === "free" && (
               <div className="mt-4 text-xs text-amber-600 bg-amber-50 p-2 rounded-md text-center">
-                {remainingDaily <= 5 ? (
+                {getRemainingUsage(format === "qrcode" ? 'qrCodesGenerated' : 'barcodesGenerated') <= 5 ? (
                   <>
-                    You have {remainingDaily} downloads remaining today.  
-                    <button 
-                      onClick={() => router.push('/pricing')} 
+                    You have {getRemainingUsage(format === "qrcode" ? 'qrCodesGenerated' : 'barcodesGenerated')} downloads remaining today.  
+                    <Link 
+                      href='/pricing' 
                       className="ml-1 underline"
                     >
                       Upgrade for unlimited.
-                    </button>
+                    </Link>
                   </>
                 ) : (
                   <>Free tier: Limited to low-resolution JPEG</>
@@ -709,12 +785,12 @@ export default function SequenceGenerator() {
                 <li>Customize with more barcode types</li>
                 <li>Generate up to 1000 barcodes at once</li>
               </ul>
-              <button
-                onClick={() => router.push('/pricing')}
+              <Link
+                href='/pricing'
                 className="mt-3 px-4 py-1 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700"
               >
                 Upgrade Now
-              </button>
+              </Link>
             </div>
           )}
         </div>

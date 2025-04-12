@@ -6,12 +6,31 @@ import JsBarcode from "jsbarcode";
 import JSZip from "jszip";
 import { saveAs } from "file-saver";
 import jsPDF from 'jspdf';
-import { useSubscription } from "@/context/SubscriptionContext";
+import { useSubscription } from "../hooks/useSubscription";
+import { useTrackUsage } from "@/hooks/useTrackUsage";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 export default function BulkSequenceGenerator() {
   const router = useRouter();
-  const { hasFeature, subscriptionTier, decrementDaily, remainingDaily } = useSubscription();
+  const { 
+    subscriptionTier,
+    loading: subscriptionLoading,
+    error: subscriptionError
+  } = useSubscription();
+  
+  // Use tracking hook
+  const {
+    trackUsage,
+    isTracking,
+    error: trackingError,
+    canUseFeature,
+    getRemainingUsage,
+    isWithinUsageLimit
+  } = useTrackUsage();
+
+  // Define remainingDaily - safely get remaining usage
+  const remainingDaily = getRemainingUsage ? getRemainingUsage('bulkGenerations') : 0;
 
   const [prefix, setPrefix] = useState<string>("");
   const [suffix, setSuffix] = useState<string>("");
@@ -136,11 +155,23 @@ export default function BulkSequenceGenerator() {
   }, [prefix, suffix, startNumber, padding, count, increment]); // Add dependencies
 
   const generateBulkCodes = async () => {
+    // First check if the user can perform a bulk generation
+    if (subscriptionTier === "free" && !isWithinUsageLimit("bulkGenerations", 1)) {
+      alert("You've reached your daily limit for bulk generations.");
+      router.push('/pricing');
+      return;
+    }
+    
     setIsGenerating(true);
     setProgress(0);
     setDownloadLink("");
     
     try {
+      // Track usage for bulk generation
+      if (subscriptionTier === "free") {
+        await trackUsage('bulkGenerations');
+      }
+      
       const codes = generateSequence();
       setCodes(codes);
       
@@ -538,11 +569,22 @@ export default function BulkSequenceGenerator() {
     if (codes.length === 0) return;
     
     setIsGenerating(true);
-    
     try {
-      // For free users, decrement daily limit and enforce low resolution JPEG
+      // For free users, check and track usage
       if (subscriptionTier === "free") {
-        decrementDaily();
+        const feature = format === "qrcode" ? "qrCodesGenerated" : "barcodesGenerated";
+        
+        // Check if user has enough remaining usage
+        if (!isWithinUsageLimit(feature, codes.length)) {
+          alert(`You've reached your daily limit for ${format === "qrcode" ? "QR code" : "barcode"} generation.`);
+          router.push('/pricing');
+          setIsGenerating(false);
+          return;
+        }
+        
+        // If we can proceed, track the usage
+        trackUsage(feature, codes.length);
+        alert("Free tier: Files will be downloaded as low-resolution JPEGs");
         
         // Force JPEG format in low resolution for free users
         setDownloadFormat("zip-jpg");
@@ -599,6 +641,25 @@ export default function BulkSequenceGenerator() {
         alert(`Free tier: Limited to ${totalCodes} low-resolution JPEG files. Upgrade to Pro for full access!`);
       } else {
         // Paid users get full functionality
+        // Check permissions for the selected output type first
+        if ((outputType === 'pdf' || outputType === 'pdf-tile') && !canUseFeature("pdfDownload")) {
+          alert("You need a Pro or Business subscription to download PDF formats.");
+          router.push('/pricing');
+          return;
+        }
+        
+        if (downloadFormat === "zip-svg" && !canUseFeature("svgDownload")) {
+          alert("You need a Pro or Business subscription to download SVG formats.");
+          router.push('/pricing');
+          return;
+        }
+        
+        if (downloadFormat === "zip-png" && !canUseFeature("noWatermark")) {
+          alert("You need a Pro or Business subscription to download PNG formats.");
+          router.push('/pricing');
+          return;
+        }
+        
         if (downloadFormat === "pdf") {
           // Generate PDF
           const pdf = new jsPDF({
@@ -657,7 +718,6 @@ export default function BulkSequenceGenerator() {
                 zip.file(`code-${i+1}.svg`, svgString);
               } else {
                 // For barcodes, we'd need to capture SVG differently
-                // This is a placeholder for actual implementation
                 const svgContainer = document.createElement("div");
                 JsBarcode(svgContainer, code, {
                   format: barcodeType,
@@ -666,7 +726,6 @@ export default function BulkSequenceGenerator() {
                   displayValue: true,
                   background: backgroundColor,
                   lineColor: foregroundColor,
-                  xmlDocument: true
                 });
                 const svgString = svgContainer.innerHTML;
                 zip.file(`code-${i+1}.svg`, svgString);
@@ -904,7 +963,7 @@ export default function BulkSequenceGenerator() {
                 )}
               </label>
               
-              <label className={`inline-flex items-center ${!hasFeature("svgDownload") ? "opacity-50" : ""}`}>
+              <label className={`inline-flex items-center ${!canUseFeature("pdfDownload") ? "opacity-50" : ""}`}>
                 <input
                   type="radio"
                   className="form-radio"
@@ -912,15 +971,15 @@ export default function BulkSequenceGenerator() {
                   value="pdf"
                   checked={outputType === 'pdf'}
                   onChange={() => setOutputType('pdf')}
-                  disabled={!hasFeature("pdfDownload")}
+                  disabled={!canUseFeature("pdfDownload")}
                 />
                 <span className="ml-2">PDF (Layout Sheet)</span>
-                {!hasFeature("pdfDownload") && (
+                {!canUseFeature("pdfDownload") && (
                   <span className="ml-1 text-xs text-blue-600 font-semibold">PRO</span>
                 )}
               </label>
               
-              <label className={`inline-flex items-center ${!hasFeature("svgDownload") ? "opacity-50" : ""}`}>
+              <label className={`inline-flex items-center ${!canUseFeature("pdfDownload") ? "opacity-50" : ""}`}>
                 <input
                   type="radio"
                   className="form-radio"
@@ -928,10 +987,10 @@ export default function BulkSequenceGenerator() {
                   value="pdf-tile"
                   checked={outputType === 'pdf-tile'}
                   onChange={() => setOutputType('pdf-tile')}
-                  disabled={!hasFeature("svgDownload")}
+                  disabled={!canUseFeature("pdfDownload")}
                 />
                 <span className="ml-2">PDF (Tile Sheet)</span>
-                {!hasFeature("svgDownload") && (
+                {!canUseFeature("pdfDownload") && (
                   <span className="ml-1 text-xs text-blue-600 font-semibold">PRO</span>
                 )}
               </label>
