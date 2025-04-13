@@ -1,12 +1,13 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import QRCode from "react-qr-code";
 import * as qrcode from "qrcode";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { useSubscription } from "@/context/SubscriptionProvider";
+import { useSubscription } from "@/hooks/useSubscription";
 import { useTrackUsage } from "@/hooks/useTrackUsage";
+import { FeatureType } from "@/lib/subscription";
 
 type QRCodeType = 'url' | 'text' | 'email' | 'phone' | 'sms' | 'contact' | 'wifi';
 
@@ -39,7 +40,7 @@ export default function QRCodeGenerator({ onDownload }: QRCodeGeneratorProps) {
   // Use the subscription context
   const { 
     subscriptionTier,
-    limits
+    getLimit
   } = useSubscription();
   
   // Use the tracking hook
@@ -204,20 +205,31 @@ export default function QRCodeGenerator({ onDownload }: QRCodeGeneratorProps) {
     return requiredFields.every(field => formValues[field.id].trim() !== '');
   };
 
+  // Calculate progress bar width here
+  const qrCodesRemaining = useMemo(() => {
+      return getRemainingUsage('qrCodesGenerated');
+  }, [getRemainingUsage]);
+
+  const qrCodeLimit = useMemo(() => {
+      return getLimit('qrGenerationLimit');
+  }, [getLimit]);
+
+  const widthPercentage = useMemo(() => {
+      return Math.min(100, (qrCodesRemaining / (qrCodeLimit || 1)) * 100);
+  }, [qrCodesRemaining, qrCodeLimit]);
+
   const downloadQRCode = async () => {
     try {
       if (qrValue.trim() === "") return;
       
-      // Check if user can generate QR code
-      const remainingQRCodes = getRemainingUsage('qrCodesGenerated');
-      
-      if (remainingQRCodes <= 0) {
+      // Check if user can generate QR code (use calculated remaining)
+      if (qrCodesRemaining <= 0) {
         alert(`You've reached your QR code generation limit for your ${subscriptionTier} plan. Please upgrade to continue.`);
         router.push('/pricing');
         return;
       }
       
-      // Track usage before generating
+      // Track usage (pass correct FeatureType)
       const trackSuccess = await trackUsage('qrCodesGenerated');
       
       if (!trackSuccess) {
@@ -289,25 +301,23 @@ export default function QRCodeGenerator({ onDownload }: QRCodeGeneratorProps) {
         </div> */}
         
         <div className="rounded-lg border border-neutral-200 p-4 bg-neutral-50">
+          {/* Usage Progress Bar */}
           <div className="flex justify-between items-center">
             <span className="text-sm font-medium text-gray-700">QR Codes Remaining:</span>
-            <span className="text-sm font-bold">{getRemainingUsage('qrCodesGenerated')}</span>
+            <span className="text-sm font-bold">{qrCodesRemaining}</span>
           </div>
           <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
             <div 
               className="bg-indigo-600 h-2 rounded-full" 
-              style={{ 
-                width: `${Math.min(100, (getRemainingUsage('qrCodesGenerated') / (limits?.qrGenerationLimit || 1)) * 100)}%` 
-              }}
+              style={{ width: `${widthPercentage}%` }}
             ></div>
           </div>
           
-          {subscriptionTier === 'free' && getRemainingUsage('qrCodesGenerated') < 3 && (
+          {subscriptionTier === 'free' && qrCodesRemaining < 3 && (
             <div className="mt-2 text-xs text-amber-700">
               <Link href="/pricing" className="text-indigo-600 hover:underline">
-                Upgrade your plan
-              </Link>
-              {' '}to generate more QR codes.
+                Upgrade to Pro
+              </Link> for unlimited QR codes.
             </div>
           )}
           
@@ -387,11 +397,7 @@ export default function QRCodeGenerator({ onDownload }: QRCodeGeneratorProps) {
                 return (
                   <div
                     key={template.id}
-                    className={`
-                      relative p-4 border rounded-lg text-center transition-all cursor-pointer
-                      ${selectedTemplate === template.id ? 'border-indigo-500 bg-indigo-50' : 'border-gray-200 hover:border-gray-300'}
-                      ${isPremiumLocked ? 'opacity-60' : ''}
-                    `}
+                    className={`relative p-4 border rounded-lg text-center transition-all cursor-pointer ${selectedTemplate === template.id ? 'border-indigo-500 bg-indigo-50' : 'border-gray-200 hover:border-gray-300'} ${isPremiumLocked ? 'opacity-60' : ''}`}
                     onClick={() => {
                       if (!isPremiumLocked) {
                         setSelectedTemplate(template.id);
@@ -426,7 +432,7 @@ export default function QRCodeGenerator({ onDownload }: QRCodeGeneratorProps) {
           <button
             className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center text-sm"
             onClick={downloadQRCode}
-            disabled={!isFormValid() || !qrValue || isTracking || getRemainingUsage('qrCodesGenerated') <= 0}
+            disabled={!isFormValid() || !qrValue || isTracking || qrCodesRemaining <= 0}
           >
             {isTracking ? (
               <svg className="animate-spin h-5 w-5 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -468,7 +474,7 @@ export default function QRCodeGenerator({ onDownload }: QRCodeGeneratorProps) {
                 />
                 
                 {/* Watermark for free tier */}
-                {subscriptionTier === 'free' && getRemainingUsage('qrCodesGenerated') < 3 && (
+                {subscriptionTier === 'free' && qrCodesRemaining < 3 && (
                   <div className="absolute inset-0 flex items-center justify-center">
                     <div className="absolute transform rotate-45 text-gray-300 text-lg font-bold opacity-50">
                       SMART QR
@@ -540,7 +546,7 @@ export default function QRCodeGenerator({ onDownload }: QRCodeGeneratorProps) {
             <div>
               <div className="text-sm font-medium">Your {subscriptionTier.charAt(0).toUpperCase() + subscriptionTier.slice(1)} Plan</div>
               <div className="text-xs text-gray-500">
-                {getRemainingUsage('qrGenerationLimit')} QR codes remaining
+                {getRemainingUsage('qrCodesGenerated')} QR codes remaining
               </div>
             </div>
             
