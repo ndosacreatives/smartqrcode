@@ -5,6 +5,7 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { SubscriptionProvider } from "@/context/SubscriptionProvider";
 import { FirebaseAuthProvider } from '@/context/FirebaseAuthContext'
+import { usePathname } from 'next/navigation';
 
 export default function ClientLayout({
   children,
@@ -12,6 +13,8 @@ export default function ClientLayout({
   children: React.ReactNode
 }) {
   const [isMounted, setIsMounted] = useState(false);
+  const pathname = usePathname();
+  const isAdminPage = pathname?.startsWith('/admin');
 
   useEffect(() => {
     setIsMounted(true);
@@ -22,11 +25,11 @@ export default function ClientLayout({
       <SubscriptionProvider>
         {isMounted ? (
           <>
-            <Header />
-            <main className="flex-grow container mx-auto px-4 py-8">
+            {!isAdminPage && <Header />}
+            <main className={`flex-grow container mx-auto px-4 py-8 ${isAdminPage ? 'p-0 max-w-none' : ''}`}>
               {children}
             </main>
-            <Footer />
+            {!isAdminPage && <Footer />}
           </>
         ) : (
           <div className="flex-grow container mx-auto px-4 py-8">
