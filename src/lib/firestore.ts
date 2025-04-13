@@ -16,30 +16,53 @@ import { db } from './firebase';
 import { User } from 'firebase/auth';
 
 // User-related database operations
-interface UserData {
+export interface UserData {
   id: string;
   email: string;
-  displayName: string;
-  subscriptionTier: 'free' | 'pro' | 'business';
+  displayName: string | null;
+  subscriptionTier: string;
+  role: 'admin' | 'user';
   subscriptionEnd?: Timestamp;
   createdAt: Timestamp;
+  updatedAt: Timestamp;
   featuresUsage: {
-    codesGenerated: number;
-    dailyCodesUsed: number;
-    lastDailyReset: Timestamp;
+    qrCodesGenerated: number;
+    barcodesGenerated: number;
+    bulkGenerations: number;
+    aiCustomizations: number;
   };
 }
 
 // Save or update user data in Firestore
-export const saveUserData = async (user: User) => {
+export const saveUserData = async (user: User | UserData) => {
   try {
-    await setDoc(doc(db, 'users', user.uid), {
-      uid: user.uid,
-      email: user.email,
-      displayName: user.displayName || '',
-      photoURL: user.photoURL || '',
-      createdAt: new Date().toISOString(),
-    }, { merge: true });
+    // If we're passed a Firebase User object
+    if ('uid' in user) {
+      await setDoc(doc(db, 'users', user.uid), {
+        id: user.uid,
+        email: user.email,
+        displayName: user.displayName || '',
+        photoURL: user.photoURL || '',
+        subscriptionTier: 'free',
+        role: 'user',
+        featuresUsage: {
+          qrCodesGenerated: 0,
+          barcodesGenerated: 0,
+          bulkGenerations: 0,
+          aiCustomizations: 0
+        },
+        createdAt: Timestamp.now(),
+        updatedAt: Timestamp.now()
+      }, { merge: true });
+    } else {
+      // If we're passed a UserData object directly
+      const { id, ...userData } = user;
+      await setDoc(doc(db, 'users', id), {
+        id,
+        ...userData,
+        updatedAt: Timestamp.now()
+      }, { merge: true });
+    }
     return true;
   } catch (error) {
     console.error('Error saving user data:', error);
@@ -63,6 +86,20 @@ export async function getUserData(userId: string) {
     throw error;
   }
 }
+
+// Get all users (requires appropriate Firestore rules for admin access)
+export const getAllUsers = async (): Promise<UserData[]> => {
+  const usersCollection = collection(db, "users");
+  const usersQuery = query(usersCollection);
+  const querySnapshot = await getDocs(usersQuery);
+  
+  const users: UserData[] = [];
+  querySnapshot.forEach((doc) => {
+    users.push(doc.data() as UserData);
+  });
+  
+  return users;
+};
 
 // QR Code and Barcode related database operations
 interface CodeData {
@@ -192,4 +229,12 @@ export async function incrementCodeScan(codeId: string) {
     console.error("Error incrementing code scan:", error);
     throw error;
   }
-} 
+}
+
+// Update specific fields for a user
+export const updateUserData = async (userId: string, dataToUpdate: Partial<UserData>) => {
+  const userRef = doc(db, "users", userId);
+  // Add updatedAt timestamp automatically
+  const updateData = { ...dataToUpdate, updatedAt: Timestamp.now() }; 
+  await updateDoc(userRef, updateData);
+}; 

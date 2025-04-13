@@ -1,10 +1,10 @@
 "use client";
 
-import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import JsBarcode from "jsbarcode";
-import jsPDF from 'jspdf';
-import { useSubscription } from "@/context/SubscriptionContext";
+import { useSubscription } from "@/context/SubscriptionProvider";
 import { useRouter } from "next/navigation";
+import { useTrackUsage } from "@/hooks/useTrackUsage";
 
 type ImageFormat = 'png' | 'svg' | 'jpg' | 'eps' | 'pdf';
 
@@ -14,7 +14,16 @@ interface BarcodeGeneratorProps {
 
 export default function BarcodeGenerator({ onDownload }: BarcodeGeneratorProps) {
   const router = useRouter();
-  const { hasFeature, subscriptionTier, decrementDaily, remainingDaily } = useSubscription();
+  const { subscriptionTier } = useSubscription();
+  
+  // Use the tracking hook
+  const {
+    trackUsage,
+    error: trackingError,
+    canUseFeature,
+    getRemainingUsage,
+  } = useTrackUsage();
+  
   const [text, setText] = useState<string>("");
   const [suffix, setSuffix] = useState<string>("");
   const [barcodeType, setBarcodeType] = useState<string>("CODE128");
@@ -42,61 +51,39 @@ export default function BarcodeGenerator({ onDownload }: BarcodeGeneratorProps) 
   ], []);
 
   // List of supported image formats
-  const imageFormats = [
-    { value: 'png', label: 'PNG' },
-    { value: 'svg', label: 'SVG' },
-    { value: 'jpg', label: 'JPG' },
-    { value: 'eps', label: 'EPS' },
-    { value: 'pdf', label: 'PDF' },
-  ];
+  // const imageFormats = [
+  //   { value: 'png', label: 'PNG' },
+  //   { value: 'svg', label: 'SVG' },
+  //   { value: 'jpg', label: 'JPG' },
+  //   { value: 'eps', label: 'EPS' },
+  //   { value: 'pdf', label: 'PDF' },
+  // ];
 
-  // Validate input based on barcode type
-  const validateInput = useCallback((value: string, type: string) => {
-    const format = barcodeFormats.find(f => f.value === type);
-    if (!format) return false;
-    
-    if (format.regex.test(value)) {
-      setErrorMessage("");
-      return true;
-    } else {
-      setErrorMessage(`Invalid format for ${format.label}`);
-      return false;
-    }
-  }, [barcodeFormats, setErrorMessage]);
-
-  // Generate barcode whenever parameters change
+  // Validate the barcode text based on the selected format
   useEffect(() => {
-    const valueToEncode = text + suffix;
-    if (valueToEncode.trim() !== "" && canvasRef.current) {
-      try {
-        if (validateInput(valueToEncode, barcodeType)) {
-          JsBarcode(canvasRef.current, valueToEncode, {
-            format: barcodeType,
-            width,
-            height,
-            displayValue,
-            marginTop,
-            marginBottom,
-            lineColor: foregroundColor,
-            background: backgroundColor,
-          });
-        }
-      } catch (err) {
-        console.error("Error generating barcode", err);
-        setErrorMessage("Failed to generate barcode. Please check your input.");
-      }
+    if (!text) {
+      setErrorMessage("");
+      return;
     }
-  }, [text, suffix, barcodeType, width, height, displayValue, foregroundColor, backgroundColor, marginTop, marginBottom, validateInput]);
 
-  const generateBarcode = () => {
-    if (canvasRef.current) {
+    const selectedFormat = barcodeFormats.find(f => f.value === barcodeType);
+    if (selectedFormat && !selectedFormat.regex.test(text)) {
+      setErrorMessage(`Invalid format for ${selectedFormat.label}`);
+    } else {
+      setErrorMessage("");
+    }
+  }, [text, barcodeType, barcodeFormats]);
+
+  // Generate the barcode when inputs change
+  const generateBarcode = useCallback(() => {
+    if (canvasRef.current && text && !errorMessage) {
       try {
-        // Generate barcode with specified options
-        JsBarcode(canvasRef.current, text + suffix, {
+        JsBarcode(canvasRef.current, text, {
           format: barcodeType,
+          displayValue,
           width,
           height,
-          displayValue,
+          margin: 0,
           marginTop,
           marginBottom,
           lineColor: foregroundColor,
@@ -107,58 +94,86 @@ export default function BarcodeGenerator({ onDownload }: BarcodeGeneratorProps) 
         alert("Failed to generate barcode. Please check your input.");
       }
     }
-  };
+  }, [text, barcodeType, width, height, displayValue, foregroundColor, backgroundColor, marginTop, marginBottom, errorMessage]);
 
-  const downloadBarcode = () => {
+  useEffect(() => {
+    if (text && !errorMessage && canvasRef.current) {
+      generateBarcode();
+    }
+  }, [text, errorMessage, canvasRef, generateBarcode]);
+
+  const downloadBarcode = async () => {
     if (canvasRef.current) {
       try {
-        // For free users, decrement daily limit and enforce low resolution for JPEG
-        if (subscriptionTier === "free") {
-          decrementDaily();
-          
-          // Force low resolution JPEG for free users
-          const canvas = canvasRef.current as HTMLCanvasElement;
-          const resizedCanvas = document.createElement("canvas");
-          // Low resolution output - approximately 72dpi quality
-          const scaleFactor = 0.5;
-          resizedCanvas.width = canvas.width * scaleFactor;
-          resizedCanvas.height = canvas.height * scaleFactor;
-          const ctx = resizedCanvas.getContext("2d");
-          ctx?.drawImage(canvas, 0, 0, resizedCanvas.width, resizedCanvas.height);
-          
-          // Force JPEG format for free users
-          const dataUrl = resizedCanvas.toDataURL("image/jpeg", 0.7);
-          const downloadLink = document.createElement("a");
-          downloadLink.href = dataUrl;
-          downloadLink.download = `barcode-${barcodeType.toLowerCase()}-${text + suffix}.jpg`;
-          document.body.appendChild(downloadLink);
-          downloadLink.click();
-          document.body.removeChild(downloadLink);
+        // Check if user can generate barcode
+        const remainingBarcodes = getRemainingUsage('barcodesGenerated');
+        
+        if (remainingBarcodes <= 0) {
+          alert(`You've reached your barcode generation limit for your ${subscriptionTier} plan. Please upgrade to continue.`);
+          router.push('/pricing');
+          return;
+        }
+        
+        // Track usage before generating
+        const trackSuccess = await trackUsage('barcodesGenerated');
+        
+        if (!trackSuccess) {
+          if (trackingError) {
+            alert(trackingError);
+          }
+          return;
+        }
+        
+        // Process based on image format
+        const canvas = canvasRef.current as HTMLCanvasElement;
+        let dataUrl;
+        let extension;
+        
+        // Check premium formats
+        if (imageFormat === "svg" && !canUseFeature('barcodesGenerated')) {
+          alert("SVG format requires a premium subscription. Please upgrade your plan.");
+          router.push('/pricing');
+          return;
+        } else if (imageFormat === "pdf" && !canUseFeature('barcodesGenerated')) {
+          alert("PDF format requires a premium subscription. Please upgrade your plan.");
+          router.push('/pricing');
+          return;
+        }
+        
+        // Process the different formats
+        if (imageFormat === "svg") {
+          // SVG export logic (simplified for this example)
+          alert("SVG export not implemented in this demo");
+          return;
+        } else if (imageFormat === "pdf") {
+          // PDF export logic (simplified for this example)
+          alert("PDF export not implemented in this demo");
+          return;
         } else {
-          // Paid users get full resolution and format options
-          const canvas = canvasRef.current as HTMLCanvasElement;
-          let dataUrl;
-          let extension;
+          // Default to PNG/JPEG 
+          const mimeType = imageFormat === "jpg" ? "image/jpeg" : "image/png";
+          const quality = imageFormat === "jpg" ? 1.0 : undefined;
           
-          // Allow different formats for paid users
-          if (imageFormat === "svg" && hasFeature("svgDownload")) {
-            // SVG export logic (requires converting canvas to SVG)
-            // This would require additional libraries in a real implementation
-            alert("SVG export not implemented in this demo");
-            return;
-          } else if (imageFormat === "pdf" && hasFeature("pdfDownload")) {
-            // PDF export logic would go here
-            alert("PDF export not implemented in this demo");
-            return;
+          // For free tier, reduce quality
+          if (subscriptionTier === "free" && imageFormat === "jpg") {
+            const resizedCanvas = document.createElement("canvas");
+            const scaleFactor = 0.5;
+            resizedCanvas.width = canvas.width * scaleFactor;
+            resizedCanvas.height = canvas.height * scaleFactor;
+            const ctx = resizedCanvas.getContext("2d");
+            ctx?.drawImage(canvas, 0, 0, resizedCanvas.width, resizedCanvas.height);
+            dataUrl = resizedCanvas.toDataURL(mimeType, 0.7);
           } else {
-            // Default to high-quality PNG/JPEG for paid users
-            const mimeType = imageFormat === "jpg" ? "image/jpeg" : "image/png";
-            const quality = imageFormat === "jpg" ? 1.0 : undefined;
             dataUrl = canvas.toDataURL(mimeType, quality);
-            extension = imageFormat;
           }
           
-          // Download the file
+          extension = imageFormat;
+        }
+        
+        // Download the file
+        if (onDownload && dataUrl) {
+          onDownload(dataUrl);
+        } else if (dataUrl) {
           const downloadLink = document.createElement("a");
           downloadLink.href = dataUrl;
           downloadLink.download = `barcode-${barcodeType.toLowerCase()}-${text + suffix}.${extension}`;
@@ -366,7 +381,7 @@ export default function BarcodeGenerator({ onDownload }: BarcodeGeneratorProps) 
                 )}
               </label>
               
-              <label className={`inline-flex items-center ${!hasFeature("svgDownload") ? "opacity-50" : ""}`}>
+              <label className={`inline-flex items-center ${!canUseFeature('barcodesGenerated') ? "opacity-50" : ""}`}>
                 <input
                   type="radio"
                   className="form-radio"
@@ -374,15 +389,15 @@ export default function BarcodeGenerator({ onDownload }: BarcodeGeneratorProps) 
                   value="png"
                   checked={imageFormat === "png"}
                   onChange={() => setImageFormat("png")}
-                  disabled={!hasFeature("svgDownload")}
+                  disabled={!canUseFeature('barcodesGenerated')}
                 />
                 <span className="ml-2">PNG</span>
-                {!hasFeature("svgDownload") && (
+                {!canUseFeature('barcodesGenerated') && (
                   <span className="ml-1 text-xs text-blue-600 font-semibold">PRO</span>
                 )}
               </label>
               
-              <label className={`inline-flex items-center ${!hasFeature("svgDownload") ? "opacity-50" : ""}`}>
+              <label className={`inline-flex items-center ${!canUseFeature('barcodesGenerated') ? "opacity-50" : ""}`}>
                 <input
                   type="radio"
                   className="form-radio"
@@ -390,15 +405,15 @@ export default function BarcodeGenerator({ onDownload }: BarcodeGeneratorProps) 
                   value="svg"
                   checked={imageFormat === "svg"}
                   onChange={() => setImageFormat("svg")}
-                  disabled={!hasFeature("svgDownload")}
+                  disabled={!canUseFeature('barcodesGenerated')}
                 />
                 <span className="ml-2">SVG</span>
-                {!hasFeature("svgDownload") && (
+                {!canUseFeature('barcodesGenerated') && (
                   <span className="ml-1 text-xs text-blue-600 font-semibold">PRO</span>
                 )}
               </label>
               
-              <label className={`inline-flex items-center ${!hasFeature("pdfDownload") ? "opacity-50" : ""}`}>
+              <label className={`inline-flex items-center ${!canUseFeature('barcodesGenerated') ? "opacity-50" : ""}`}>
                 <input
                   type="radio"
                   className="form-radio"
@@ -406,10 +421,10 @@ export default function BarcodeGenerator({ onDownload }: BarcodeGeneratorProps) 
                   value="pdf"
                   checked={imageFormat === "pdf"}
                   onChange={() => setImageFormat("pdf")}
-                  disabled={!hasFeature("pdfDownload")}
+                  disabled={!canUseFeature('barcodesGenerated')}
                 />
                 <span className="ml-2">PDF</span>
-                {!hasFeature("pdfDownload") && (
+                {!canUseFeature('barcodesGenerated') && (
                   <span className="ml-1 text-xs text-blue-600 font-semibold">PRO</span>
                 )}
               </label>
@@ -432,25 +447,6 @@ export default function BarcodeGenerator({ onDownload }: BarcodeGeneratorProps) 
             <span>Download Barcode</span>
             <span className="ml-2">(.{imageFormat.toUpperCase()})</span>
           </button>
-          
-          {/* Remaining daily count for free users */}
-          {subscriptionTier === "free" && (
-            <div className="mt-4 text-xs text-amber-600 bg-amber-50 p-2 rounded-md text-center">
-              {remainingDaily <= 5 ? (
-                <>
-                  You have {remainingDaily} barcodes remaining today.  
-                  <button 
-                    onClick={() => router.push('/pricing')} 
-                    className="ml-1 underline"
-                  >
-                    Upgrade for unlimited.
-                  </button>
-                </>
-              ) : (
-                <>Free tier: Limited to low-resolution JPEG</>
-              )}
-            </div>
-          )}
         </div>
         
         {/* Right Column - Preview */}

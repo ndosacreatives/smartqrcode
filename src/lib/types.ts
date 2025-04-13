@@ -36,4 +36,106 @@ export interface UseSubscriptionReturn {
   remainingUsage: (feature: string) => number;
   hasReachedLimit: (feature: string) => boolean;
   isWithinUsageLimit: (feature: string, amount?: number) => boolean;
+}
+
+// Dynamic QR code tracking types
+export interface QRCodeData {
+  id: string;
+  userId: string;
+  name: string;
+  content: string;
+  type: 'url' | 'text' | 'email' | 'phone' | 'sms' | 'wifi' | 'file';
+  createdAt: any;
+  expiresAt?: any;
+  trackingEnabled: boolean;
+  scans: number;
+  lastScan?: any;
+  scanLocations?: ScanLocation[];
+  isPublic: boolean;
+  customData?: Record<string, any>;
+  fileUrl?: string;
+  fileType?: string;
+  fileName?: string;
+}
+
+export interface ScanLocation {
+  timestamp: any;
+  ip?: string;
+  country?: string;
+  city?: string;
+  browser?: string;
+  os?: string;
+  device?: string;
+  referrer?: string;
+}
+
+// Enhanced Barcode types
+export interface BarcodeData {
+  id: string;
+  userId: string;
+  name: string;
+  content: string;
+  type: string; // barcode format (e.g., CODE128, EAN13)
+  createdAt: any;
+  enhancedData?: {
+    title?: string;
+    description?: string;
+    productInfo?: {
+      name?: string;
+      sku?: string;
+      price?: number;
+      currency?: string;
+      category?: string;
+      manufacturer?: string;
+      dimensions?: string;
+      weight?: string;
+    };
+    customFields?: Record<string, string>;
+  };
+  isPublic: boolean;
+}
+
+// Analytics data type
+export interface AnalyticsData {
+  userId: string;
+  period: 'daily' | 'weekly' | 'monthly' | 'yearly';
+  startDate: any;
+  endDate: any;
+  metrics: {
+    totalScans: number;
+    uniqueVisitors: number;
+    topLocations: {
+      country: string;
+      count: number;
+    }[];
+    deviceBreakdown: {
+      mobile: number;
+      desktop: number;
+      tablet: number;
+      other: number;
+    };
+    scansByDay: {
+      date: string;
+      count: number;
+    }[];
+    topReferrers: {
+      referrer: string;
+      count: number;
+    }[];
+  };
+}
+
+// File Upload type
+export interface UploadedFile {
+  id: string;
+  userId: string;
+  fileName: string;
+  fileSize: number;
+  fileType: string;
+  uploadDate: any;
+  downloadUrl: string;
+  accessCount: number;
+  qrCodeId?: string;
+  isPublic: boolean;
+  expiresAt?: any;
 } 

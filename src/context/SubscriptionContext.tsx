@@ -1,267 +1,126 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import { useAuth } from '@/context/FirebaseAuthContext';
+import { db } from '@/lib/firebase';
+import { doc, onSnapshot, Unsubscribe } from 'firebase/firestore';
+import { 
+  FeatureType, 
+  hasFeatureAccess, 
+  hasReachedLimit, 
+  getRemainingUsage,
+  SubscriptionTier
+} from '@/lib/subscription';
+import { UsageStats } from '@/lib/usage-tracker';
+import { UserData } from '@/lib/types';
 
-// Define subscription types
-export type SubscriptionTier = "free" | "pro" | "business";
-
-// Define features
-export type FeatureKey =
-  | "advancedCustomization"
-  | "svgDownload"
-  | "pdfDownload"
-  | "noWatermark"
-  | "analytics"
-  | "apiAccess"
-  | "whiteLabel"
-  | "bulkGeneration"
-  | "barcodeCustomization"
-  | "premiumTemplates"
-  | "customBranding"
-  | "brandedLandingPages"
-  | "customDomain"
-  | "scanStatistics"
-  | "geographicData"
-  | "deviceTracking"
-  | "conversionAnalysis";
-
-// Define analytics data structure
-export interface AnalyticsData {
-  totalScans: number;
-  dailyScans: number[];
-  scansByCountry: Record<string, number>;
-  scansByDevice: Record<string, number>;
-  conversionRate: number;
-  lastUpdated: string;
-}
-
-// Define context type
-interface SubscriptionContextType {
-  subscriptionTier: SubscriptionTier;
+type SubscriptionContextType = {
+  tier: SubscriptionTier;
+  usageStats: UsageStats | null;
+  hasFeatureAccess: (feature: FeatureType) => boolean;
+  hasReachedLimit: (feature: FeatureType) => boolean;
+  getRemainingUsage: (feature: FeatureType) => { daily: number; monthly: number };
   isLoading: boolean;
-  hasFeature: (feature: FeatureKey) => boolean;
-  upgradeSubscription: (tier: SubscriptionTier) => void;
-  remainingDaily: number;
-  decrementDaily: () => void;
-  // New fields for enhanced features
-  bulkGenerationLimit: number;
-  analytics: AnalyticsData | null;
-  showWatermark: boolean;
-  brandName: string;
-  setBrandName: (name: string) => void;
-  brandLogo: string;
-  setBrandLogo: (url: string) => void;
-  brandColors: { primary: string; secondary: string };
-  setBrandColors: (colors: { primary: string; secondary: string }) => void;
-  customDomain: string;
-  setCustomDomain: (domain: string) => void;
-}
+};
 
-// Create context
-const SubscriptionContext = createContext<SubscriptionContextType | undefined>(undefined);
+const defaultUsageStats: UsageStats = {
+  features: {}
+};
 
-// Create Provider component
-interface SubscriptionProviderProps {
-  children: ReactNode;
-}
+const SubscriptionContext = createContext<SubscriptionContextType>({
+  tier: 'free',
+  usageStats: defaultUsageStats,
+  hasFeatureAccess: () => false,
+  hasReachedLimit: () => true,
+  getRemainingUsage: () => ({ daily: 0, monthly: 0 }),
+  isLoading: true,
+});
 
-export const SubscriptionProvider: React.FC<SubscriptionProviderProps> = ({ children }) => {
-  const [subscriptionTier, setSubscriptionTier] = useState<SubscriptionTier>("free");
+export const useSubscription = () => useContext(SubscriptionContext);
+
+export const SubscriptionProvider: React.FC<{
+  children: React.ReactNode;
+}> = ({ children }) => {
+  const { user } = useAuth();
+  const [tier, setTier] = useState<SubscriptionTier>('free');
+  const [usageStats, setUsageStats] = useState<UsageStats | null>(defaultUsageStats);
   const [isLoading, setIsLoading] = useState(true);
-  const [remainingDaily, setRemainingDaily] = useState(5); // Free tier limit
-  
-  // New state for enhanced features
-  const [brandName, setBrandName] = useState<string>("");
-  const [brandLogo, setBrandLogo] = useState<string>("");
-  const [brandColors, setBrandColors] = useState<{ primary: string; secondary: string }>({
-    primary: "#1e40af",
-    secondary: "#3b82f6"
-  });
-  const [customDomain, setCustomDomain] = useState<string>("");
-  const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
-
-  // Feature map - which tiers have access to which features
-  const featureMap: Record<FeatureKey, SubscriptionTier[]> = {
-    advancedCustomization: ["pro", "business"],
-    svgDownload: ["pro", "business"],
-    pdfDownload: ["pro", "business"],
-    noWatermark: ["pro", "business"],
-    analytics: ["pro", "business"],
-    apiAccess: ["business"],
-    whiteLabel: ["business"],
-    bulkGeneration: ["pro", "business"],
-    barcodeCustomization: ["pro", "business"],
-    // New features
-    premiumTemplates: ["pro", "business"],
-    customBranding: ["business"],
-    brandedLandingPages: ["business"],
-    customDomain: ["business"],
-    scanStatistics: ["pro", "business"],
-    geographicData: ["business"],
-    deviceTracking: ["business"],
-    conversionAnalysis: ["business"],
-  };
-
-  // Get bulk generation limit based on subscription tier
-  const getBulkGenerationLimit = (): number => {
-    switch (subscriptionTier) {
-      case "free":
-        return 10;
-      case "pro":
-        return 100;
-      case "business":
-        return 1000;
-      default:
-        return 10;
-    }
-  };
-
-  // Determine if watermark should be shown
-  const getShowWatermark = (): boolean => {
-    return subscriptionTier === "free";
-  };
 
   useEffect(() => {
-    // Load subscription data from localStorage
-    const loadSubscriptionData = () => {
-      try {
-        const storedTier = localStorage.getItem("subscriptionTier") as SubscriptionTier;
-        if (storedTier) {
-          setSubscriptionTier(storedTier);
-        }
-
-        // Load daily remaining count
-        const today = new Date().toISOString().split("T")[0];
-        const storedDate = localStorage.getItem("lastCheckDate");
-        const storedCount = localStorage.getItem("remainingDaily");
-
-        if (storedDate === today && storedCount) {
-          setRemainingDaily(Number(storedCount));
+    setIsLoading(true);
+    
+    let unsubscribe: Unsubscribe | null = null;
+    
+    if (user?.uid) {
+      const userDocRef = doc(db, 'users', user.uid);
+      
+      unsubscribe = onSnapshot(userDocRef, (docSnapshot) => {
+        if (docSnapshot.exists()) {
+          const userData = docSnapshot.data();
+          // Get subscription tier
+          setTier(userData.subscriptionTier || 'free');
+          // Get usage stats
+          setUsageStats(userData.usageStats || defaultUsageStats);
         } else {
-          // Reset count for a new day
-          localStorage.setItem("lastCheckDate", today);
-          localStorage.setItem("remainingDaily", "5");
-          setRemainingDaily(5);
+          // Default to free tier if user doc doesn't exist
+          setTier('free');
+          setUsageStats(defaultUsageStats);
         }
-
-        // Load branding information if available
-        const storedBrandName = localStorage.getItem("brandName");
-        if (storedBrandName) setBrandName(storedBrandName);
-        
-        const storedBrandLogo = localStorage.getItem("brandLogo");
-        if (storedBrandLogo) setBrandLogo(storedBrandLogo);
-        
-        const storedBrandColors = localStorage.getItem("brandColors");
-        if (storedBrandColors) setBrandColors(JSON.parse(storedBrandColors));
-        
-        const storedCustomDomain = localStorage.getItem("customDomain");
-        if (storedCustomDomain) setCustomDomain(storedCustomDomain);
-
-        // Load mock analytics data for demo
-        if (storedTier && (storedTier === "pro" || storedTier === "business")) {
-          setAnalytics({
-            totalScans: 247,
-            dailyScans: [12, 15, 8, 20, 18, 25, 14],
-            scansByCountry: {
-              "United States": 120,
-              "United Kingdom": 45,
-              "Canada": 32,
-              "Germany": 28,
-              "France": 22
-            },
-            scansByDevice: {
-              "Mobile": 158,
-              "Desktop": 69,
-              "Tablet": 20
-            },
-            conversionRate: 3.2,
-            lastUpdated: new Date().toISOString()
-          });
-        }
-      } catch (error) {
-        console.error("Error loading subscription data:", error);
-      } finally {
         setIsLoading(false);
-      }
-    };
-
-    loadSubscriptionData();
-  }, []);
-
-  // Save remaining daily count whenever it changes
-  useEffect(() => {
-    if (!isLoading) {
-      localStorage.setItem("remainingDaily", remainingDaily.toString());
-    }
-  }, [remainingDaily, isLoading]);
-
-  // Save branding settings
-  useEffect(() => {
-    if (!isLoading && subscriptionTier === "business") {
-      localStorage.setItem("brandName", brandName);
-      localStorage.setItem("brandLogo", brandLogo);
-      localStorage.setItem("brandColors", JSON.stringify(brandColors));
-      localStorage.setItem("customDomain", customDomain);
-    }
-  }, [brandName, brandLogo, brandColors, customDomain, isLoading, subscriptionTier]);
-
-  const hasFeature = (feature: FeatureKey): boolean => {
-    // Free tier always has access to basic features
-    if (subscriptionTier === "free") {
-      // Check if they have daily quota remaining for QR code generation
-      if (feature === "bulkGeneration" || feature === "pdfDownload" || feature === "svgDownload" || 
-          feature === "noWatermark" || feature === "premiumTemplates" || feature === "scanStatistics") {
-        return false;
-      }
+      }, (error) => {
+        console.error("Error getting user subscription data:", error);
+        setTier('free');
+        setUsageStats(defaultUsageStats);
+        setIsLoading(false);
+      });
+    } else {
+      // No user logged in, default to free tier
+      setTier('free');
+      setUsageStats(defaultUsageStats);
+      setIsLoading(false);
     }
     
-    return featureMap[feature]?.includes(subscriptionTier) || false;
+    return () => {
+      if (unsubscribe) {
+        unsubscribe();
+      }
+    };
+  }, [user]);
+
+  const checkFeatureAccess = (feature: FeatureType): boolean => {
+    return hasFeatureAccess(tier, feature);
   };
 
-  const upgradeSubscription = (tier: SubscriptionTier) => {
-    setSubscriptionTier(tier);
-    localStorage.setItem("subscriptionTier", tier);
+  const checkHasReachedLimit = (feature: FeatureType): boolean => {
+    if (!usageStats) return true;
+    
+    return hasReachedLimit(tier, feature, {
+      daily: usageStats.features[feature]?.daily.count || 0,
+      monthly: usageStats.features[feature]?.monthly.count || 0
+    });
   };
 
-  const decrementDaily = () => {
-    if (subscriptionTier === "free" && remainingDaily > 0) {
-      setRemainingDaily((prev) => prev - 1);
-    }
+  const getRemaining = (feature: FeatureType) => {
+    if (!usageStats) return { daily: 0, monthly: 0 };
+    
+    return getRemainingUsage(tier, feature, {
+      daily: usageStats.features[feature]?.daily.count || 0,
+      monthly: usageStats.features[feature]?.monthly.count || 0
+    });
+  };
+
+  const value = {
+    tier,
+    usageStats,
+    hasFeatureAccess: checkFeatureAccess,
+    hasReachedLimit: checkHasReachedLimit,
+    getRemainingUsage: getRemaining,
+    isLoading,
   };
 
   return (
-    <SubscriptionContext.Provider
-      value={{
-        subscriptionTier,
-        isLoading,
-        hasFeature,
-        upgradeSubscription,
-        remainingDaily,
-        decrementDaily,
-        // New fields
-        bulkGenerationLimit: getBulkGenerationLimit(),
-        analytics,
-        showWatermark: getShowWatermark(),
-        brandName,
-        setBrandName,
-        brandLogo, 
-        setBrandLogo,
-        brandColors,
-        setBrandColors,
-        customDomain,
-        setCustomDomain
-      }}
-    >
+    <SubscriptionContext.Provider value={value}>
       {children}
     </SubscriptionContext.Provider>
   );
-};
-
-// Hook for using the subscription context
-export const useSubscription = (): SubscriptionContextType => {
-  const context = useContext(SubscriptionContext);
-  if (context === undefined) {
-    throw new Error("useSubscription must be used within a SubscriptionProvider");
-  }
-  return context;
 }; 

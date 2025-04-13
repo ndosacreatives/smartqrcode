@@ -11,7 +11,7 @@ import {
   updateProfile
 } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
-import { saveUserData } from '@/lib/firestore';
+import { saveUserData, UserData } from '@/lib/firestore';
 
 interface AuthContextType {
   user: User | null;
@@ -53,20 +53,21 @@ export function FirebaseAuthProvider({ children }: { children: ReactNode }) {
       // Update user profile with display name
       await updateProfile(userCredential.user, { displayName });
       
-      // Save user to Firestore
+      // Save user to Firestore with proper structure
       await saveUserData({
         id: userCredential.user.uid,
         email: userCredential.user.email || '',
         displayName: displayName,
         subscriptionTier: 'free',
+        role: 'user',
         featuresUsage: {
           qrCodesGenerated: 0,
           barcodesGenerated: 0,
           bulkGenerations: 0,
           aiCustomizations: 0
         },
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
+        createdAt: new Date(),
+        updatedAt: new Date()
       });
     } finally {
       setLoading(false);

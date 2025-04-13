@@ -1,0 +1,26 @@
+warning: in the working copy of '.gitignore', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'package-lock.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'package.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/app/layout.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/components/BarcodeGenerator.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/components/QRCodeGenerator.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/lib/subscription.ts', LF will be replaced by CRLF the next time Git touches it
+.gitignore
+netlify.toml
+next.config.js
+next.config.ts
+package-lock.json
+package.json
+src/app/client-layout.tsx
+src/app/dashboard/page.tsx
+src/app/layout.tsx
+src/app/pricing/page.tsx
+src/components/BarcodeGenerator.tsx
+src/components/Header.tsx
+src/components/QRCodeGenerator.tsx
+src/context/FirebaseAuthContext.tsx
+src/context/SubscriptionContext.tsx
+src/lib/firebase.ts
+src/lib/firestore.ts
+src/lib/subscription.ts
+src/lib/types.ts
