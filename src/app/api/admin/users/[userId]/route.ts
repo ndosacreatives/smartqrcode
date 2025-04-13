@@ -4,7 +4,8 @@ import { db } from '@/lib/firebase';
 import { UserData } from '@/lib/types';
 
 // Get specific user
-export async function GET(request: Request, { params }: { params: { userId: string } }) {
+export async function GET(request: Request, context: { params: { userId: string } }) {
+  const { params } = context;
   try {
     const userId = params.userId;
     const userDocRef = doc(db, 'users', userId);
