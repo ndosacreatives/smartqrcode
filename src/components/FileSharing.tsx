@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useSubscription } from '@/hooks/useSubscription';
 import { useRouter } from 'next/router';
@@ -122,7 +122,7 @@ const SharedFileCard: React.FC<SharedFileProps> = ({ shareInfo, file, onRevoke }
 
 const FileSharing: React.FC = () => {
   const { user } = useAuth();
-  const { subscriptionTier, canUseFeature } = useSubscription();
+  const { subscriptionTier } = useSubscription();
   const router = useRouter();
   const toast = useToast();
   
@@ -138,23 +138,8 @@ const FileSharing: React.FC = () => {
   const [useExpiration, setUseExpiration] = useState(false);
   const [expirationDays, setExpirationDays] = useState(7);
   
-  useEffect(() => {
-    // Redirect non-premium users
-    if (user && subscriptionTier === 'free') {
-      router.push('/pricing');
-      toast({
-        title: 'Premium Feature',
-        description: 'File sharing is only available for premium users',
-        status: 'warning',
-        duration: 5000,
-        isClosable: true,
-      });
-    } else if (user) {
-      loadSharedFiles();
-    }
-  }, [user, subscriptionTier]);
-  
-  const loadSharedFiles = async () => {
+  // Define loadSharedFiles with useCallback before using it in useEffect
+  const loadSharedFiles = useCallback(async () => {
     if (!user) return;
     
     setLoading(true);
@@ -171,7 +156,23 @@ const FileSharing: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user, toast]);
+  
+  useEffect(() => {
+    // Redirect non-premium users
+    if (user && subscriptionTier === 'free') {
+      router.push('/pricing');
+      toast({
+        title: 'Premium Feature',
+        description: 'File sharing is only available for premium users',
+        status: 'warning',
+        duration: 5000,
+        isClosable: true,
+      });
+    } else if (user) {
+      loadSharedFiles();
+    }
+  }, [user, subscriptionTier, loadSharedFiles, router, toast]);
   
   const handleRevokeSharing = async (shareId: string) => {
     if (!user) return;

@@ -47,7 +47,6 @@ export default function QRCodeGenerator({ onDownload }: QRCodeGeneratorProps) {
     trackUsage,
     isTracking,
     error: trackingError,
-    canUseFeature,
     getRemainingUsage
   } = useTrackUsage();
   

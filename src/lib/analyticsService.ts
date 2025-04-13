@@ -283,83 +283,93 @@ export async function getAnalyticsData(
   startDate?: Date | null,
   endDate?: Date | null
 ): Promise<AnalyticsData> {
-  // Build the base query for the scans collection
-  let scansQuery = query(collection(db, "scans"), where("userId", "==", userId));
+  try {
+    // Build the base query for the scans collection
+    let scansQuery = query(collection(db, "scans"), where("userId", "==", userId));
 
-  // Add date filters if provided
-  if (startDate) {
-    scansQuery = query(scansQuery, where("timestamp", ">=", Timestamp.fromDate(startDate)));
-  }
-  if (endDate) {
-    // Add 1 day to endDate to make it inclusive
-    const inclusiveEndDate = new Date(endDate);
-    inclusiveEndDate.setDate(inclusiveEndDate.getDate() + 1);
-    scansQuery = query(scansQuery, where("timestamp", "<", Timestamp.fromDate(inclusiveEndDate)));
-  }
-
-  // Execute the query to get scan documents
-  const querySnapshot = await getDocs(scansQuery);
-  const scans = querySnapshot.docs.map(doc => doc.data() as InternalScanData);
-
-  // Calculate analytics metrics
-  let totalScans = scans.length;
-  let scansByDay: Record<string, number> = {};
-  let scansByCountry: Record<string, number> = {};
-  let deviceBreakdown: Record<string, number> = {};
-  let scansByReferrer: Record<string, number> = {};
-  let uniqueIPs = new Set<string>();
-  let scansByLocation: Record<string, number> = {};
-
-  scans.forEach(scan => {
-    // Format date as YYYY-MM-DD
-    const date = scan.timestamp.toDate().toISOString().split('T')[0];
-    scansByDay[date] = (scansByDay[date] || 0) + 1;
-
-    // Track scans by country
-    const country = scan.location?.country || "Unknown";
-    scansByCountry[country] = (scansByCountry[country] || 0) + 1;
-
-    // Track device types
-    const device = scan.deviceInfo?.type || "Unknown";
-    deviceBreakdown[device] = (deviceBreakdown[device] || 0) + 1;
-
-    // Track referrers
-    const referrer = scan.referrer || "Direct";
-    scansByReferrer[referrer] = (scansByReferrer[referrer] || 0) + 1;
-
-    // Track unique IPs (as proxy for unique devices)
-    if (scan.ipAddress) {
-      uniqueIPs.add(scan.ipAddress);
+    // Add date filters if provided
+    if (startDate) {
+      scansQuery = query(scansQuery, where("timestamp", ">=", Timestamp.fromDate(startDate)));
     }
-    
-    // Track scans by location (city, country)
-    if (scan.location) {
-        const locationKey = `${scan.location.city || 'Unknown'}, ${scan.location.country || 'Unknown'}`;
-        scansByLocation[locationKey] = (scansByLocation[locationKey] || 0) + 1;
+    if (endDate) {
+      // Add 1 day to endDate to make it inclusive
+      const inclusiveEndDate = new Date(endDate);
+      inclusiveEndDate.setDate(inclusiveEndDate.getDate() + 1);
+      scansQuery = query(scansQuery, where("timestamp", "<", Timestamp.fromDate(inclusiveEndDate)));
     }
-  });
 
-  // Find most active country
-  const mostActiveCountry = Object.entries(scansByCountry).sort(([, a], [, b]) => b - a)[0]?.[0] || "N/A";
+    // Execute the query to get scan documents
+    const querySnapshot = await getDocs(scansQuery);
+    const scans = querySnapshot.docs.map(doc => doc.data() as InternalScanData);
 
-  // Find top referrer
-  const topReferrer = Object.entries(scansByReferrer).sort(([, a], [, b]) => b - a)[0]?.[0] || "N/A";
+    // Calculate analytics metrics
+    const totalScans = scans.length;
+    const scansByDay: Record<string, number> = {};
+    const scansByCountry: Record<string, number> = {};
+    const deviceBreakdown: Record<string, number> = {
+      mobile: 0,
+      desktop: 0,
+      tablet: 0,
+      other: 0
+    };
+    const scansByReferrer: Record<string, number> = {};
+    const uniqueIPs = new Set<string>();
+    const scansByLocation: Record<string, number> = {};
 
-  // Get scan history (limit to recent 100 for performance)
-  const historyQuery = query(scansQuery, orderBy("timestamp", "desc")); // Removed limit(100)
-  const historySnapshot = await getDocs(historyQuery);
-  const scanHistory = historySnapshot.docs.map(doc => doc.data() as InternalScanData);
+    scans.forEach(scan => {
+      // Format date as YYYY-MM-DD
+      const date = scan.timestamp.toDate().toISOString().split('T')[0];
+      scansByDay[date] = (scansByDay[date] || 0) + 1;
 
-  return {
-    totalScans,
-    uniqueDevices: uniqueIPs.size,
-    mostActiveCountry,
-    topReferrer,
-    scansByDay,
-    scansByCountry,
-    deviceBreakdown,
-    scansByReferrer,
-    scansByLocation,
-    scanHistory,
-  };
+      // Track scans by country
+      const country = scan.location?.country || "Unknown";
+      scansByCountry[country] = (scansByCountry[country] || 0) + 1;
+
+      // Track device types
+      const device = scan.deviceInfo?.type || "Unknown";
+      deviceBreakdown[device] = (deviceBreakdown[device] || 0) + 1;
+
+      // Track referrers
+      const referrer = scan.referrer || "Direct";
+      scansByReferrer[referrer] = (scansByReferrer[referrer] || 0) + 1;
+
+      // Track unique IPs (as proxy for unique devices)
+      if (scan.ipAddress) {
+        uniqueIPs.add(scan.ipAddress);
+      }
+      
+      // Track scans by location (city, country)
+      if (scan.location) {
+          const locationKey = `${scan.location.city || 'Unknown'}, ${scan.location.country || 'Unknown'}`;
+          scansByLocation[locationKey] = (scansByLocation[locationKey] || 0) + 1;
+      }
+    });
+
+    // Find most active country
+    const mostActiveCountry = Object.entries(scansByCountry).sort(([, a], [, b]) => b - a)[0]?.[0] || "N/A";
+
+    // Find top referrer
+    const topReferrer = Object.entries(scansByReferrer).sort(([, a], [, b]) => b - a)[0]?.[0] || "N/A";
+
+    // Get scan history (limit to recent 100 for performance)
+    const historyQuery = query(scansQuery, orderBy("timestamp", "desc")); // Removed limit(100)
+    const historySnapshot = await getDocs(historyQuery);
+    const scanHistory = historySnapshot.docs.map(doc => doc.data() as InternalScanData);
+
+    return {
+      totalScans,
+      uniqueDevices: uniqueIPs.size,
+      mostActiveCountry,
+      topReferrer,
+      scansByDay,
+      scansByCountry,
+      deviceBreakdown,
+      scansByReferrer,
+      scansByLocation,
+      scanHistory,
+    };
+  } catch (error) {
+    console.error('Error getting analytics data:', error);
+    throw error;
+  }
 } 

@@ -3,7 +3,6 @@ import { useSubscription } from '../hooks/useSubscription';
 import SubscriptionCheck from './SubscriptionCheck';
 import { useRouter } from 'next/navigation';
 import { hasFeatureAccess, getFeatureLimit } from '../lib/subscriptions';
-import { useAuth } from "@/context/FirebaseAuthContext";
 
 export default function BulkGenerator() {
   const [qrCodes, setQrCodes] = useState<string[]>([]);
@@ -11,8 +10,6 @@ export default function BulkGenerator() {
   const [numCodes, setNumCodes] = useState(5);
   const { subscriptionTier, loading } = useSubscription();
   const router = useRouter();
-  // Unused variable commented out
-  // const { user } = useAuth();
   
   // Get limits based on subscription tier
   const maxBulkItems = getFeatureLimit(subscriptionTier, 'maxBulkItems');
