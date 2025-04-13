@@ -20,16 +20,28 @@ export default function ClientLayout({
     setIsMounted(true);
   }, []);
 
+  // For admin pages, just wrap with providers but don't add any layout elements
+  if (isAdminPage) {
+    return (
+      <FirebaseAuthProvider>
+        <SubscriptionProvider>
+          {children}
+        </SubscriptionProvider>
+      </FirebaseAuthProvider>
+    );
+  }
+
+  // For regular pages, include header and footer
   return (
     <FirebaseAuthProvider>
       <SubscriptionProvider>
         {isMounted ? (
           <>
-            {!isAdminPage && <Header />}
-            <main className={`flex-grow container mx-auto px-4 py-8 ${isAdminPage ? 'p-0 max-w-none' : ''}`}>
+            <Header />
+            <main className="flex-grow container mx-auto px-4 py-8">
               {children}
             </main>
-            {!isAdminPage && <Footer />}
+            <Footer />
           </>
         ) : (
           <div className="flex-grow container mx-auto px-4 py-8">

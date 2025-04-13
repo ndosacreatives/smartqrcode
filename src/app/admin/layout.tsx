@@ -1,12 +1,5 @@
 import React from 'react';
-// Remove unused imports related to auth/redirect
-// import { useRouter } from 'next/navigation';
-// import Link from 'next/link';
-// import { useAuth } from '@/context/FirebaseAuthContext';
-// import { getUserData } from '@/lib/firestore';
-import AdminRootWrapper from '@/components/admin/AdminRootWrapper';
-// Import the correct provider component
-// import { FirebaseAuthProvider } from '@/context/FirebaseAuthContext';
+import AdminLayout from '@/components/admin/AdminLayout';
 import { Metadata } from 'next';
 
 export const metadata: Metadata = {
@@ -14,19 +7,16 @@ export const metadata: Metadata = {
   description: 'Admin panel for managing Smart QR Code Generator',
 };
 
-// This is a standalone layout that doesn't inherit the main site header
-export default function AdminRootLayout({
+export default function AdminPageLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  // This layout will be nested inside the root layout
   return (
-    <html lang="en">
-      <body className="min-h-screen bg-gray-50">
-        <AdminRootWrapper>
-          {children}
-        </AdminRootWrapper>
-      </body>
-    </html>
+    // The actual admin UI will be rendered through AdminLayout
+    <div className="w-full min-h-screen max-w-none p-0 m-0">
+      <AdminLayout>{children}</AdminLayout>
+    </div>
   );
 } 
