@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { adminAuth } from '@/lib/firebase-admin';
+import { auth as adminAuth, db } from '@/lib/firebase-admin';
 import { resetUsageStats } from '@/lib/usage-tracker';
 
 export async function POST(request: NextRequest) {
