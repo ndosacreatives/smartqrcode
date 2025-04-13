@@ -178,7 +178,7 @@ const SharedFilePage: React.FC<SharedFilePageProps> = () => {
             onChange={(e) => setPassword(e.target.value)}
           />
           
-          <Button colorScheme="blue" onClick={handleVerifyPassword} isFullWidth>
+          <Button colorScheme="blue" onClick={handleVerifyPassword} w="full">
             Verify Password
           </Button>
         </VStack>
