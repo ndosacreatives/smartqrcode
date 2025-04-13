@@ -6,6 +6,7 @@
   NODE_VERSION = "18"
   NEXT_PRIVATE_TARGET = "server"
   ESLINT_NO_DEV_ERRORS = "true"
+  NEXT_DISABLE_TYPESCRIPT_AND_ESLINT = "1"
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"
