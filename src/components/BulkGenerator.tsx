@@ -11,7 +11,8 @@ export default function BulkGenerator() {
   const [numCodes, setNumCodes] = useState(5);
   const { subscriptionTier, loading } = useSubscription();
   const router = useRouter();
-  const { user } = useAuth();
+  // Unused variable commented out
+  // const { user } = useAuth();
   
   // Get limits based on subscription tier
   const maxBulkItems = getFeatureLimit(subscriptionTier, 'maxBulkItems');

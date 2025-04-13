@@ -7,9 +7,27 @@ import { FiLink, FiTrash2, FiCopy, FiEye, FiDownload, FiLock, FiUnlock, FiCalend
 import { getUserSharedFiles, revokeSharing, makeFilePublic, shareFileWithUsers } from '@/lib/fileSharingService';
 import { format } from 'date-fns';
 
+// Define proper types for the file sharing data
+interface SharedFile {
+  fileName: string;
+  fileSize: number;
+  fileType: string;
+  id: string;
+}
+
+interface ShareInfo {
+  id: string;
+  createdAt: { seconds: number };
+  expiresAt?: { seconds: number };
+  password?: string;
+  sharedWith: string;
+  accessCount: number;
+  accessType: 'view' | 'download';
+}
+
 interface SharedFileProps {
-  shareInfo: any;
-  file: any;
+  shareInfo: ShareInfo;
+  file: SharedFile;
   onRevoke: (shareId: string) => void;
 }
 
@@ -39,7 +57,7 @@ const SharedFileCard: React.FC<SharedFileProps> = ({ shareInfo, file, onRevoke }
     }
   };
 
-  const formatDate = (timestamp: any) => {
+  const formatDate = (timestamp: { seconds: number } | undefined) => {
     if (!timestamp) return 'Never';
     const date = new Date(timestamp.seconds * 1000);
     return format(date, 'MMM d, yyyy h:mm a');
@@ -108,7 +126,7 @@ const FileSharing: React.FC = () => {
   const router = useRouter();
   const toast = useToast();
   
-  const [sharedFiles, setSharedFiles] = useState<any[]>([]);
+  const [sharedFiles, setSharedFiles] = useState<{ file: SharedFile; shareInfo: ShareInfo }[]>([]);
   const [loading, setLoading] = useState(true);
   const [showShareForm, setShowShareForm] = useState(false);
   const [selectedFile, setSelectedFile] = useState<string | null>(null);

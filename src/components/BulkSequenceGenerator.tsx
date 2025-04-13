@@ -39,11 +39,11 @@ export default function BulkSequenceGenerator() {
   const [outputType, setOutputType] = useState<'zip' | 'pdf' | 'pdf-tile'>('zip');
 
   // Tiling State (for PDF Tile download)
-  const [tileColumns, setTileColumns] = useState<number>(4);
-  const [tileRows, setTileRows] = useState<number>(10);
-  const [tileSpacing, setTileSpacing] = useState<number>(5);
-  const [tileSpacingUnit, setTileSpacingUnit] = useState<'mm' | 'cm'>('mm');
-  const [addOutline, setAddOutline] = useState<boolean>(false);
+  const [tileColumns, /* setTileColumns */] = useState<number>(4);
+  const [tileRows, /* setTileRows */] = useState<number>(10);
+  const [tileSpacing, /* setTileSpacing */] = useState<number>(5);
+  const [tileSpacingUnit, /* setTileSpacingUnit */] = useState<'mm' | 'cm'>('mm');
+  const [addOutline, /* setAddOutline */] = useState<boolean>(false);
 
   // Add a state variable for barcode height
   const [barcodeHeight, setBarcodeHeight] = useState<number>(4);
@@ -55,7 +55,7 @@ export default function BulkSequenceGenerator() {
   const [codes, setCodes] = useState<string[]>([]);
   
   // Add codesInput state variable
-  const [codesInput, setCodesInput] = useState<boolean>(true);
+  const [codesInput, /* setCodesInput */] = useState<boolean>(true);
 
   // Add missing state variables for download options
   const [downloadFormat, setDownloadFormat] = useState<string>("zip-jpg");
@@ -193,9 +193,9 @@ export default function BulkSequenceGenerator() {
 
       } else if (outputType === 'pdf') {
         // --- PDF Generation Logic (Single code per page - maybe adapt later?) --- 
-        let pdfWidth = 210;
-        let pdfHeight = 297;
-        let pdfFormat: string | number[] = 'a4'; // Local variable for jsPDF format
+        const pdfWidth = 210;
+        const pdfHeight = 297;
+        const pdfFormat: string | number[] = 'a4'; // Local variable for jsPDF format
         
         const pdf = new jsPDF({
           orientation: 'p',

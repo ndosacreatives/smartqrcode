@@ -75,9 +75,9 @@ export default function QRCodeGenerator({ onDownload }: QRCodeGeneratorProps) {
   });
 
   const [qrValue, setQrValue] = useState<string>('');
-  const [size, setSize] = useState<number>(200);
-  const [backgroundColor, setBackgroundColor] = useState<string>('#FFFFFF');
-  const [foregroundColor, setForegroundColor] = useState<string>('#000000');
+  const [size] = useState<number>(200);
+  const [backgroundColor] = useState<string>('#FFFFFF');
+  const [foregroundColor] = useState<string>('#000000');
   const [imageFormat, setImageFormat] = useState<ImageFormat>('png');
   const qrRef = useRef<HTMLDivElement>(null);
   const [selectedTemplate, setSelectedTemplate] = useState<string>("basic");
@@ -147,7 +147,7 @@ export default function QRCodeGenerator({ onDownload }: QRCodeGeneratorProps) {
 
   useEffect(() => {
     updateQRValue();
-  }, [qrType, formValues]);
+  }, [qrType, formValues, updateQRValue]);
 
   const updateQRValue = () => {
     let value = '';
