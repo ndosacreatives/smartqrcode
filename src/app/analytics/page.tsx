@@ -1,12 +1,12 @@
 "use client";
 
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, Suspense } from "react";
 import { Bar } from "react-chartjs-2";
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend } from 'chart.js';
 import { useSubscription } from "@/context/SubscriptionContext";
 import { AnalyticsData, getAnalyticsData } from "@/lib/analyticsService";
 import { useAuth } from "@/context/FirebaseAuthContext";
-import DateRangePicker from "@/components/admin/DateRangePicker"; // Assuming you have this
+// Removed the problematic import
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
 
@@ -22,6 +22,44 @@ interface ChartData {
     data: number[];
     backgroundColor: string;
   }[];
+}
+
+// Simple inline DateRangePicker component
+function SimpleDateRangePicker({ initialRange, onRangeChange }: { 
+  initialRange: DateRange; 
+  onRangeChange: (range: DateRange) => void;
+}) {
+  const formatDateForInput = (date: Date | null) => {
+    if (!date) return '';
+    return date.toISOString().split('T')[0];
+  };
+
+  return (
+    <div className="flex space-x-4 items-center">
+      <label htmlFor="startDate" className="text-gray-700">Start Date:</label>
+      <input 
+        type="date" 
+        id="startDate"
+        value={formatDateForInput(initialRange.startDate)}
+        onChange={(e) => onRangeChange({ 
+          ...initialRange, 
+          startDate: e.target.value ? new Date(e.target.value) : null 
+        })}
+        className="p-2 border rounded"
+      />
+      <label htmlFor="endDate" className="text-gray-700">End Date:</label>
+      <input 
+        type="date" 
+        id="endDate"
+        value={formatDateForInput(initialRange.endDate)}
+        onChange={(e) => onRangeChange({ 
+          ...initialRange, 
+          endDate: e.target.value ? new Date(e.target.value) : null 
+        })}
+        className="p-2 border rounded"
+      />
+    </div>
+  );
 }
 
 export default function AnalyticsPage() {
@@ -150,7 +188,7 @@ export default function AnalyticsPage() {
       
       {/* Date Range Picker */}
       <div className="mb-6">
-        <DateRangePicker 
+        <SimpleDateRangePicker
           initialRange={dateRange} 
           onRangeChange={setDateRange} 
         />
