@@ -1,12 +1,21 @@
 "use client";
 
 import React from 'react';
-import { useSubscription } from '@/hooks/useSubscription';
-import { useTrackUsage } from '@/hooks/useTrackUsage';
-import { useAuth } from '@/context/FirebaseAuthContext';
-import { hasFeatureAccess } from '@/lib/subscription';
+// import { useSubscription } from '@/hooks/useSubscription';
+// import { useTrackUsage } from '@/hooks/useTrackUsage';
+// import { useAuth } from '@/context/FirebaseAuthContext';
+// import { hasFeatureAccess } from '@/lib/subscription';
 
 export default function DebugSubscription() {
+  // Temporarily disabled for debugging
+  return (
+    <div className="p-4 border border-red-300 bg-red-50 rounded-md my-4">
+      <h2 className="text-lg font-bold mb-2">Subscription Debug</h2>
+      <p>Debug component temporarily disabled</p>
+    </div>
+  );
+
+  /*
   const { user } = useAuth();
   const subscription = useSubscription() as any;
   const subscriptionTier = subscription.subscriptionTier;
@@ -39,35 +48,18 @@ export default function DebugSubscription() {
       {subscriptionError && <div className="text-red-500">Error: {String(subscriptionError)}</div>}
       
       <h3 className="font-semibold mt-3 mb-2">Feature Access:</h3>
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="border-b">
-            <th className="text-left py-1">Feature</th>
-            <th className="text-left py-1">Direct Check</th>
-            <th className="text-left py-1">useSubscription</th>
-            <th className="text-left py-1">useTrackUsage</th>
-          </tr>
-        </thead>
-        <tbody>
-          {features.map(feature => (
-            <tr key={feature} className="border-b">
-              <td className="py-1">{feature}</td>
-              <td className="py-1">{hasFeatureAccess(subscriptionTier, feature as any) ? '✅' : '❌'}</td>
-              <td className="py-1">{subscription.canUseFeature(feature) ? '✅' : '❌'}</td>
-              <td className="py-1">{trackCanUseFeature(feature) ? '✅' : '❌'}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
       
-      <div className="mt-4 text-sm text-gray-700">
-        <p>If you're experiencing issues with premium features not being available:</p>
-        <ol className="list-decimal ml-5">
-          <li>Make sure your subscription tier is correctly set in the database</li>
-          <li>Check that the canUseFeature function is properly evaluating permissions</li>
-          <li>Verify that all three checks in the table above show consistent results</li>
-        </ol>
+      <div className="grid grid-cols-2 gap-2">
+        {features.map(feature => (
+          <div key={feature} className="flex justify-between border p-2 rounded">
+            <span>{feature}:</span>
+            <span className={trackCanUseFeature(feature) ? "text-green-600" : "text-red-600"}>
+              {trackCanUseFeature(feature) ? "✓" : "✗"}
+            </span>
+          </div>
+        ))}
       </div>
     </div>
   );
+  */
 } 

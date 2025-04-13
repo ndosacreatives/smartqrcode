@@ -6,9 +6,10 @@ import QRCodeGenerator from "@/components/QRCodeGenerator";
 import BarcodeGenerator from "@/components/BarcodeGenerator";
 import SequenceGenerator from "@/components/SequenceGenerator";
 import BulkSequenceGenerator from "@/components/BulkSequenceGenerator";
-import DebugSubscription from '@/components/DebugSubscription';
-import AdminSubscriptionTool from '@/components/AdminSubscriptionTool';
-import SubscriptionTest from '@/components/SubscriptionTest';
+// Remove debug components temporarily
+// import DebugSubscription from '@/components/DebugSubscription';
+// import AdminSubscriptionTool from '@/components/AdminSubscriptionTool';
+// import SubscriptionTest from '@/components/SubscriptionTest';
 
 // Unified component for code generation
 function UnifiedGenerator() {
@@ -112,10 +113,10 @@ function UnifiedGenerator() {
 export default function Home() {
   return (
     <main className="container mx-auto px-4 py-8">
-      {/* Add Debug Components Temporarily */}
-      <AdminSubscriptionTool />
+      {/* Remove Debug Components Temporarily */}
+      {/* <AdminSubscriptionTool />
       <SubscriptionTest />
-      <DebugSubscription />
+      <DebugSubscription /> */}
       
       <div className="max-w-7xl mx-auto px-4 py-12 sm:px-6 lg:px-8">
         {/* All-in-one Generator Section */}

@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { useAuth } from '@/context/FirebaseAuthContext';
-import { useSubscription } from '@/hooks/useSubscription';
+import { useSubscription } from '@/context/SubscriptionProvider';
 import { FeatureType } from '@/lib/subscription';
 
 /**
@@ -8,18 +8,99 @@ import { FeatureType } from '@/lib/subscription';
  */
 export function useTrackUsage() {
   const { user } = useAuth();
-  // Use type assertion to resolve TypeScript error
-  const subscription = useSubscription() as any;
+  const subscription = useSubscription();
   const [isTracking, setIsTracking] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  /**
-   * Track usage of a specific feature
-   * @param feature Feature being used
-   * @param amount Amount to increment (default: 1)
-   * @returns Promise resolving to success status
-   */
-  const trackUsage = async (feature: FeatureType, amount: number = 1): Promise<boolean> => {
+  // Memoize the access to subscription properties to prevent render loops
+  const subscriptionTier = useMemo(() => subscription?.subscriptionTier || 'free', [subscription?.subscriptionTier]);
+  const featuresUsage = useMemo(() => subscription?.featuresUsage || {}, [subscription?.featuresUsage]);
+  const limits = useMemo(() => subscription?.limits || {}, [subscription?.limits]);
+
+  // Helper to safely get remaining usage - memoized to prevent render loops
+  const getRemaining = useCallback((feature: FeatureType): number => {
+    try {
+      if (!feature) return 0;
+      
+      const limitKey = featureLimitMap[feature];
+      if (!limitKey) return 0;
+      
+      // Use memoized values instead of directly accessing subscription
+      if (typeof subscription?.getLimit === 'function') {
+        return subscription.getLimit(limitKey) || 0;
+      }
+      
+      return 0;
+    } catch (error) {
+      console.error("Error getting remaining usage:", error);
+      return 0;
+    }
+  }, [subscription]);
+
+  // Memoize the canUseFeature function
+  const canUseFeature = useCallback((feature: string): boolean => {
+    try {
+      if (!feature) return false;
+      
+      // For permission-based features
+      if (feature === "pdfDownload" || feature === "svgDownload" || feature === "noWatermark") {
+        if (typeof subscription?.canUseFeature === 'function') {
+          return subscription.canUseFeature(feature);
+        }
+        return false;
+      }
+      
+      // For other features
+      if (!(feature in featureLimitMap)) {
+        if (typeof subscription?.canUseFeature === 'function') {
+          return subscription.canUseFeature(feature);
+        }
+        return false;
+      }
+      
+      // For standard usage-based features, check remaining usage
+      const remaining = getRemaining(feature as FeatureType);
+      return remaining > 0;
+    } catch (error) {
+      console.error("Error in canUseFeature:", error);
+      return false;
+    }
+  }, [subscription, getRemaining]);
+
+  // Memoize the isWithinUsageLimit function
+  const isWithinUsageLimit = useCallback((feature: string, amount: number = 1): boolean => {
+    try {
+      if (!feature) return false;
+      
+      // For permission-based features
+      if (feature === "pdfDownload" || feature === "svgDownload" || feature === "noWatermark") {
+        return canUseFeature(feature);
+      }
+      
+      // For non-FeatureType feature names or direct limit keys
+      if (!(feature in featureLimitMap)) {
+        if (typeof subscription?.isWithinUsageLimit === 'function') {
+          return subscription.isWithinUsageLimit(feature, amount);
+        }
+        return false;
+      }
+      
+      // For standard features in featureLimitMap
+      const featureType = feature as FeatureType;
+      const limitKey = featureLimitMap[featureType];
+      if (!limitKey) return false;
+      
+      // Check against the limit using the feature's limit key
+      const remaining = getRemaining(featureType);
+      return remaining >= amount;
+    } catch (error) {
+      console.error("Error in isWithinUsageLimit:", error);
+      return false;
+    }
+  }, [subscription, canUseFeature, getRemaining]);
+
+  // Memoize the trackUsage function
+  const trackUsage = useCallback(async (feature: FeatureType, amount: number = 1): Promise<boolean> => {
     if (!user) {
       setError('User not authenticated');
       return false;
@@ -32,8 +113,7 @@ export function useTrackUsage() {
     }
 
     // Check if user has reached limit based on local state first
-    // This prevents unnecessary API calls and provides immediate feedback
-    if (!subscription.isWithinUsageLimit(feature, amount)) {
+    if (!isWithinUsageLimit(feature, amount)) {
       setError(`You've reached your ${feature} limit for your current plan`);
       return false;
     }
@@ -65,97 +145,30 @@ export function useTrackUsage() {
     } finally {
       setIsTracking(false);
     }
-  };
+  }, [user, isWithinUsageLimit]);
 
-  // Helper to safely get remaining usage
-  const getRemaining = (feature: FeatureType): number => {
-    try {
-      if (!feature) return 0;
-      
-      const limitKey = featureLimitMap[feature];
-      if (!limitKey) return 0;
-      
-      return subscription.getLimit(limitKey) || 0;
-    } catch (error) {
-      console.error("Error getting remaining usage:", error);
-      return 0;
-    }
-  };
+  // Get remaining usage for a feature (using local state data)
+  const getRemainingUsage = useCallback((feature?: FeatureType): number => {
+    if (!feature) return 0;
+    return getRemaining(feature);
+  }, [getRemaining]);
 
-  return {
+  // Return stable object with memoized functions to prevent render loops
+  return useMemo(() => ({
     trackUsage,
     isTracking,
     error,
-    // Check if can use feature (using local state data)
-    canUseFeature: (feature: string): boolean => {
-      try {
-        console.log(`canUseFeature called for: ${feature}`);
-        console.log(`Current subscription tier: ${subscription.subscriptionTier}`);
-        
-        if (!feature) return false;
-        
-        // For permission-based features like "pdfDownload", "svgDownload", "noWatermark", 
-        // ALWAYS delegate to subscription.canUseFeature directly
-        if (feature === "pdfDownload" || feature === "svgDownload" || feature === "noWatermark") {
-          console.log(`Delegating permission-based feature to subscription.canUseFeature: ${feature}`);
-          const result = subscription.canUseFeature(feature);
-          console.log(`Result from subscription.canUseFeature: ${result}`);
-          return result;
-        }
-        
-        // For other non-FeatureType feature names, delegate to subscription's canUseFeature
-        if (!(feature in featureLimitMap)) {
-          console.log(`Delegating to subscription.canUseFeature for: ${feature}`);
-          const result = subscription.canUseFeature(feature);
-          console.log(`Result from subscription.canUseFeature: ${result}`);
-          return result;
-        }
-        
-        // For standard usage-based features, check remaining usage
-        console.log(`Checking remaining usage for: ${feature}`);
-        const remaining = getRemaining(feature as FeatureType);
-        console.log(`Remaining usage: ${remaining}`);
-        return remaining > 0;
-      } catch (error) {
-        console.error("Error in canUseFeature:", error);
-        return false;
-      }
-    },
-    // Get remaining usage for a feature (using local state data)
-    getRemainingUsage: (feature?: FeatureType): number => {
-      if (!feature) return 0;
-      return getRemaining(feature);
-    },
-    // Check if a specified amount is within the usage limit
-    isWithinUsageLimit: (feature: string, amount: number = 1): boolean => {
-      try {
-        if (!feature) return false;
-        
-        // For permission-based features, delegate to subscription.canUseFeature
-        if (feature === "pdfDownload" || feature === "svgDownload" || feature === "noWatermark") {
-          return subscription.canUseFeature(feature);
-        }
-        
-        // For non-FeatureType feature names or direct limit keys
-        if (!(feature in featureLimitMap)) {
-          // For custom features or direct limit keys, delegate to subscription's isWithinUsageLimit
-          return subscription.isWithinUsageLimit(feature, amount);
-        }
-        
-        // For standard features in featureLimitMap
-        const featureType = feature as FeatureType;
-        const limitKey = featureLimitMap[featureType];
-        if (!limitKey) return false;
-        
-        // Check against the limit using the feature's limit key
-        const remaining = getRemaining(featureType);
-        return remaining >= amount;
-      } catch (error) {
-        console.error("Error in isWithinUsageLimit:", error);
-        return false;
-      }
-    }
-  };
+    canUseFeature,
+    getRemainingUsage,
+    isWithinUsageLimit
+  }), [
+    trackUsage,
+    isTracking,
+    error,
+    canUseFeature,
+    getRemainingUsage,
+    isWithinUsageLimit
+  ]);
 }
 
 // Mapping of feature types to their limit properties
@@ -166,5 +179,9 @@ const featureLimitMap: Record<FeatureType, any> = {
   aiCustomizations: 'aiCustomizationLimit',
   noWatermark: 'noWatermark',
   svgDownload: 'svgDownload',
-  pdfDownload: 'pdfDownload'
+  pdfDownload: 'pdfDownload',
+  qrCodeTracking: 'qrCodeTracking',
+  enhancedBarcodes: 'enhancedBarcodes',
+  fileUploads: 'fileUploads',
+  analytics: 'analytics'
 }; 
