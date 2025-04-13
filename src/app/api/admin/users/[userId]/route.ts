@@ -1,11 +1,13 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { doc, updateDoc, getDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { UserData } from '@/lib/types';
 
 // Get specific user
-export async function GET(request: Request, context: { params: { userId: string } }) {
-  const { params } = context;
+export async function GET(
+  request: NextRequest,
+  { params }: { params: { userId: string } }
+) {
   try {
     const userId = params.userId;
     const userDocRef = doc(db, 'users', userId);
@@ -23,7 +25,7 @@ export async function GET(request: Request, context: { params: { userId: string 
 }
 
 // Update user data
-export async function PATCH(request: Request, { params }: { params: { userId: string } }) {
+export async function PATCH(request: NextRequest, { params }: { params: { userId: string } }) {
   try {
     const userId = params.userId;
     const body = await request.json();
@@ -64,7 +66,7 @@ export async function PATCH(request: Request, { params }: { params: { userId: st
 
 // Delete user
 export async function DELETE(
-  request: Request,
+  request: NextRequest,
   { params }: { params: { userId: string } }
 ) {
   try {
