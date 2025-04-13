@@ -265,6 +265,115 @@ export default function AnalyticsPage() {
           </ul>
         </div>
       </div>
+
+      {/* Hero Section */}
+      <div className="hero bg-cover bg-center py-20" style={{ backgroundImage: 'url(/path/to/your/image.jpg)' }}>
+        <div className="container mx-auto text-center">
+          <h1 className="text-5xl font-bold text-white mb-4">Welcome to Our Service</h1>
+          <p className="text-xl text-white mb-8">Discover the best features and benefits we offer.</p>
+          <button className="px-6 py-3 bg-blue-500 text-white rounded">Get Started</button>
+        </div>
+      </div>
+
+      {/* Features Section */}
+      <div className="features py-20">
+        <div className="container mx-auto">
+          <h2 className="text-3xl font-bold text-center mb-10">Features</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div className="feature text-center">
+              <img src="/path/to/icon1.png" alt="Feature 1" className="mx-auto mb-4" />
+              <h3 className="text-xl font-semibold mb-2">Feature 1</h3>
+              <p>Short description of feature 1.</p>
+            </div>
+            <div className="feature text-center">
+              <img src="/path/to/icon2.png" alt="Feature 2" className="mx-auto mb-4" />
+              <h3 className="text-xl font-semibold mb-2">Feature 2</h3>
+              <p>Short description of feature 2.</p>
+            </div>
+            <div className="feature text-center">
+              <img src="/path/to/icon3.png" alt="Feature 3" className="mx-auto mb-4" />
+              <h3 className="text-xl font-semibold mb-2">Feature 3</h3>
+              <p>Short description of feature 3.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Testimonials Section */}
+      <div className="testimonials bg-gray-100 py-20">
+        <div className="container mx-auto">
+          <h2 className="text-3xl font-bold text-center mb-10">Testimonials</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="testimonial p-6 bg-white rounded shadow">
+              <p className="mb-4">"This service is amazing! It has changed the way I work."</p>
+              <p className="font-semibold">- Customer Name</p>
+            </div>
+            <div className="testimonial p-6 bg-white rounded shadow">
+              <p className="mb-4">"Highly recommend to everyone looking for great features."</p>
+              <p className="font-semibold">- Another Customer</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* About Us Section */}
+      <div className="about-us py-20">
+        <div className="container mx-auto text-center">
+          <h2 className="text-3xl font-bold mb-6">About Us</h2>
+          <p className="mb-4">We are a company dedicated to providing the best service to our customers.</p>
+          <p>Our mission is to deliver high-quality products that meet the needs of our clients.</p>
+        </div>
+      </div>
+
+      {/* Pricing Section */}
+      <div className="pricing bg-gray-100 py-20">
+        <div className="container mx-auto">
+          <h2 className="text-3xl font-bold text-center mb-10">Pricing</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div className="pricing-plan p-6 bg-white rounded shadow text-center">
+              <h3 className="text-xl font-semibold mb-4">Basic Plan</h3>
+              <p className="text-2xl font-bold mb-4">$9.99/month</p>
+              <button className="px-4 py-2 bg-blue-500 text-white rounded">Choose Plan</button>
+            </div>
+            <div className="pricing-plan p-6 bg-white rounded shadow text-center">
+              <h3 className="text-xl font-semibold mb-4">Pro Plan</h3>
+              <p className="text-2xl font-bold mb-4">$19.99/month</p>
+              <button className="px-4 py-2 bg-blue-500 text-white rounded">Choose Plan</button>
+            </div>
+            <div className="pricing-plan p-6 bg-white rounded shadow text-center">
+              <h3 className="text-xl font-semibold mb-4">Enterprise Plan</h3>
+              <p className="text-2xl font-bold mb-4">Contact Us</p>
+              <button className="px-4 py-2 bg-blue-500 text-white rounded">Contact Sales</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Contact Section */}
+      <div className="contact py-20">
+        <div className="container mx-auto text-center">
+          <h2 className="text-3xl font-bold mb-6">Contact Us</h2>
+          <p className="mb-4">Have questions? We'd love to hear from you.</p>
+          <form className="max-w-md mx-auto">
+            <input type="text" placeholder="Your Name" className="w-full p-2 mb-4 border rounded" />
+            <input type="email" placeholder="Your Email" className="w-full p-2 mb-4 border rounded" />
+            <textarea placeholder="Your Message" className="w-full p-2 mb-4 border rounded"></textarea>
+            <button type="submit" className="px-6 py-3 bg-blue-500 text-white rounded">Send Message</button>
+          </form>
+        </div>
+      </div>
+
+      {/* Footer */}
+      <footer className="footer bg-gray-800 text-white py-6">
+        <div className="container mx-auto text-center">
+          <p>&copy; 2023 Your Company. All rights reserved.</p>
+          <div className="social-icons mt-4">
+            <a href="#" className="mx-2">Facebook</a>
+            <a href="#" className="mx-2">Twitter</a>
+            <a href="#" className="mx-2">LinkedIn</a>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }

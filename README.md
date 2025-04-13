@@ -1,5 +1,7 @@
 # Smart QR Code & Barcode Generator
 
+[![Netlify Status](https://api.netlify.com/api/v1/badges/YOUR-NETLIFY-APP-ID/deploy-status)](https://app.netlify.com/sites/YOUR-NETLIFY-APP-NAME/deploys)
+
 A web application that allows users to generate QR codes and barcodes with customizable options. Built with Next.js, React, and Tailwind CSS.
 
 ![Smart QR Code & Barcode Generator](https://github.com/yourusername/smartqrcode/assets/screenshot.png)
@@ -57,16 +59,79 @@ A web application that allows users to generate QR codes and barcodes with custo
 
 4. Open [http://localhost:3000](http://localhost:3000) in your browser to see the application
 
-## Deployment
+## Deployment to Netlify via GitHub
 
-This project is configured for easy deployment on Netlify:
+### Prerequisites
 
-1. Push your code to GitHub
-2. Connect your GitHub repository to Netlify
-3. Configure the build settings:
-   - Build command: `npm run build`
-   - Publish directory: `out`
-4. Deploy!
+- GitHub repository with your code
+- Netlify account
+- Firebase project (for authentication and database)
+
+### Step 1: Push Your Code to GitHub
+
+Ensure your code is pushed to a GitHub repository:
+
+```bash
+git add .
+git commit -m "Prepare for Netlify deployment"
+git push origin main
+```
+
+### Step 2: Connect to Netlify
+
+1. Log in to your Netlify account
+2. Click "New site from Git"
+3. Select GitHub as your provider
+4. Authorize Netlify to access your GitHub account
+5. Select your repository
+
+### Step 3: Configure Build Settings
+
+In the Netlify deployment settings, configure:
+
+- **Build command**: `npm run build`
+- **Publish directory**: `.next`
+- **Node version**: 18 (or your project's required version)
+
+### Step 4: Set Environment Variables
+
+Set the following environment variables in Netlify dashboard (Site settings > Build & deploy > Environment):
+
+- `NEXT_PUBLIC_FIREBASE_API_KEY`
+- `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN`
+- `NEXT_PUBLIC_FIREBASE_PROJECT_ID`
+- `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET`
+- `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID`
+- `NEXT_PUBLIC_FIREBASE_APP_ID`
+
+### Step 5: Deploy
+
+Click "Deploy site" and Netlify will build and deploy your application.
+
+### Troubleshooting
+
+If you encounter issues during deployment:
+
+1. Check Netlify build logs for errors
+2. Ensure all dependencies are correctly installed
+3. Verify environment variables are set correctly
+4. Check Firebase security rules if encountering permission issues
+
+## Development
+
+```bash
+# Install dependencies
+npm install
+
+# Run development server
+npm run dev
+
+# Build for production
+npm run build
+
+# Start production server
+npm start
+```
 
 ## License
 

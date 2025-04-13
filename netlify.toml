@@ -1,17 +1,16 @@
 [build]
-  command = "npm run netlify-build"
-  publish = "out"
+  command = "npm run build"
+  publish = ".next"
 
 [build.environment]
-  NODE_VERSION = "18.18.0"
+  NODE_VERSION = "18"
   NEXT_PRIVATE_TARGET = "server"
   ESLINT_NO_DEV_ERRORS = "true"
-  NEXT_DISABLE_ESLINT = "1"
-  CI = "false"
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"
 
+# Handle SPA routing in case SSR fails
 [[redirects]]
   from = "/*"
   to = "/index.html"
