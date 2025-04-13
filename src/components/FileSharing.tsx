@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuth } from '@/context/FirebaseAuthContext';
 import { useSubscription } from '@/hooks/useSubscription';
 import { useRouter } from 'next/router';
 import { Button, Card, Heading, Text, Box, Flex, Input, Select, Switch, Badge, IconButton, VStack, HStack, useToast, Spinner, Tooltip } from '@chakra-ui/react';
