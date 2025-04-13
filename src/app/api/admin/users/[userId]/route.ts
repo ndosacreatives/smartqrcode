@@ -6,8 +6,9 @@ import { UserData } from '@/lib/types';
 // Get specific user
 export async function GET(
   request: NextRequest,
-  { params }: { params: { userId: string } }
+  context: any
 ) {
+  const { params } = context;
   try {
     const userId = params.userId;
     const userDocRef = doc(db, 'users', userId);
@@ -25,7 +26,8 @@ export async function GET(
 }
 
 // Update user data
-export async function PATCH(request: NextRequest, { params }: { params: { userId: string } }) {
+export async function PATCH(request: NextRequest, context: any) {
+  const { params } = context;
   try {
     const userId = params.userId;
     const body = await request.json();
@@ -67,8 +69,9 @@ export async function PATCH(request: NextRequest, { params }: { params: { userId
 // Delete user
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { userId: string } }
+  context: any
 ) {
+  const { params } = context;
   try {
     const userId = params.userId;
     if (!userId) {
