@@ -17,7 +17,10 @@ interface BrandColors {
 
 export default function BrandingSettings() {
   // Use the actual subscription hook for feature access check
-  const { canAccess, loading: subscriptionLoading } = useSubscription();
+  const { 
+      canUseFeature,
+      loading: subscriptionLoading 
+  } = useSubscription();
   const { user } = useAuth(); // Get the current user
   const router = useRouter();
 
@@ -181,8 +184,8 @@ export default function BrandingSettings() {
      return <div className="p-8 text-center">Checking subscription...</div>;
   }
 
-  // Check feature access using canAccess from the actual hook
-  if (!canAccess('customBranding')) {
+  // Check feature access using canUseFeature
+  if (!canUseFeature('customBranding')) {
     return (
       <div className="bg-white p-8 rounded-lg shadow-lg max-w-4xl mx-auto">
         <h2 className="text-2xl font-bold text-gray-900 mb-6">White Label & Branding</h2>
@@ -406,7 +409,7 @@ export default function BrandingSettings() {
         <div>
           <h3 className="text-lg font-medium text-gray-900 mb-4">White Label Analytics</h3>
            {/* Add check for specific 'whiteLabelAnalytics' feature if needed */}
-           {canAccess('whiteLabelAnalytics') ? (
+           {canUseFeature('whiteLabelAnalytics') ? (
                <div className="bg-gray-50 border border-gray-200 rounded-md p-4">
                  <div className="flex items-center">
                    <input
