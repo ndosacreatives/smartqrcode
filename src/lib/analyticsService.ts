@@ -14,7 +14,7 @@ interface InternalScanData {
   userId: string;
 }
 
-// Re-export the type defined here
+// Keep the local AnalyticsData interface definition
 export interface AnalyticsData {
   totalScans: number;
   uniqueDevices: number;
@@ -25,7 +25,7 @@ export interface AnalyticsData {
   deviceBreakdown: Record<string, number>;
   scansByReferrer: Record<string, number>;
   scansByLocation: Record<string, number>;
-  scanHistory: InternalScanData[];
+  scanHistory: InternalScanData[]; // Correct type for history
 }
 
 /**
@@ -159,8 +159,8 @@ export async function getAnalytics(
         }
         
         // Track scans by location (city, country)
-        if (scan.location) {
-          const locationKey = `${scan.location.city || 'Unknown'}, ${scan.location.country || 'Unknown'}`;
+        if (scan.city || scan.country) {
+          const locationKey = `${scan.city || 'Unknown'}, ${scan.country || 'Unknown'}`;
           scansByLocation[locationKey] = (scansByLocation[locationKey] || 0) + 1;
         }
       }
@@ -198,25 +198,19 @@ export async function getAnalytics(
       limit(100)
     );
     const historySnapshot = await getDocs(historyQuery);
-    const scanHistory = historySnapshot.docs.map(doc => doc.data() as ScanData);
+    const scanHistory = historySnapshot.docs.map(doc => doc.data() as InternalScanData);
 
     return {
-      userId,
-      period,
-      startDate: calcStartDate,
-      endDate,
-      metrics: {
-        totalScans,
-        uniqueDevices: uniqueIPs.size,
-        topLocations,
-        deviceBreakdown,
-        scansByDay: scansByDayArray,
-        topReferrers,
-        mostActiveCountry,
-        topReferrer,
-        scansByLocation,
-        scanHistory
-      }
+      totalScans,
+      uniqueDevices: uniqueIPs.size,
+      mostActiveCountry,
+      topReferrer,
+      scansByDay: scansByDay,
+      scansByCountry,
+      deviceBreakdown,
+      scansByReferrer,
+      scansByLocation,
+      scanHistory
     };
   } catch (error) {
     console.error('Error getting analytics:', error);
@@ -340,8 +334,8 @@ export async function getAnalyticsData(
       
       // Track scans by location (city, country)
       if (scan.location) {
-          const locationKey = `${scan.location.city || 'Unknown'}, ${scan.location.country || 'Unknown'}`;
-          scansByLocation[locationKey] = (scansByLocation[locationKey] || 0) + 1;
+        const locationKey = `${scan.location.city || 'Unknown'}, ${scan.location.country || 'Unknown'}`;
+        scansByLocation[locationKey] = (scansByLocation[locationKey] || 0) + 1;
       }
     });
 
@@ -352,7 +346,7 @@ export async function getAnalyticsData(
     const topReferrer = Object.entries(scansByReferrer).sort(([, a], [, b]) => b - a)[0]?.[0] || "N/A";
 
     // Get scan history (limit to recent 100 for performance)
-    const historyQuery = query(scansQuery, orderBy("timestamp", "desc")); // Removed limit(100)
+    const historyQuery = query(scansQuery, orderBy("timestamp", "desc"));
     const historySnapshot = await getDocs(historyQuery);
     const scanHistory = historySnapshot.docs.map(doc => doc.data() as InternalScanData);
 
