@@ -38,25 +38,36 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Reset the user's usage stats
-    const success = await resetUsageStats(userId, feature);
-
-    if (!success) {
+    // Reset the user's usage stats using a try...catch block
+    try {
+      await resetUsageStats(userId, feature);
+      // If resetUsageStats completes without throwing, it was successful
+      return NextResponse.json({
+        success: true,
+        message: feature ? `Usage for ${feature} reset successfully` : 'All usage stats reset successfully'
+      });
+    } catch (resetError) {
+      console.error('Error calling resetUsageStats:', resetError);
       return NextResponse.json(
         { error: 'Failed to reset usage stats' },
         { status: 500 }
       );
     }
-
-    return NextResponse.json({ 
-      success: true, 
-      message: feature ? `Usage for ${feature} reset successfully` : 'All usage stats reset successfully'
-    });
+    
   } catch (error) {
-    console.error('Error resetting usage stats:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    // Catch errors from session verification, parsing request, etc.
+    console.error('Error in POST /api/admin/reset-usage:', error);
+    // Determine the error type for a more specific message if possible
+    let errorMessage = 'Internal server error';
+    let statusCode = 500;
+    if (error instanceof Error && (error.message.includes('Unauthorized') || error.message.includes('Admin access required'))) {
+      statusCode = error.message.includes('Unauthorized') ? 401 : 403;
+      errorMessage = error.message;
+    } else if (error instanceof Error && error.message.includes('User ID is required')) {
+      statusCode = 400;
+      errorMessage = error.message;
+    }
+    
+    return NextResponse.json({ error: errorMessage }, { status: statusCode });
   }
 } 
