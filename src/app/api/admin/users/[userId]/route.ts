@@ -1,101 +1,145 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { doc, updateDoc, getDoc, deleteDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { adminDb, adminAuth } from '@/lib/firebase-admin';
+import admin from 'firebase-admin';
 import { UserData } from '@/lib/types';
+
+// Add no-cache headers to response
+const addNoCacheHeaders = (response: NextResponse) => {
+  response.headers.set('Cache-Control', 'no-store, max-age=0');
+  response.headers.set('Pragma', 'no-cache');
+  return response;
+};
 
 // Get specific user
 export async function GET(
-  request: NextRequest,
-  context: any
+  request: Request,
+  { params }: { params: { userId: string } }
 ) {
-  const { params } = context;
   try {
     const userId = params.userId;
-    const userDocRef = doc(db, 'users', userId);
-    const userDocSnap = await getDoc(userDocRef);
+    const userDocRef = adminDb.collection('users').doc(userId);
+    const userDocSnap = await userDocRef.get();
 
-    if (!userDocSnap.exists()) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    if (!userDocSnap.exists) {
+      return addNoCacheHeaders(
+        NextResponse.json({ error: 'User not found' }, { status: 404 })
+      );
     }
 
-    return NextResponse.json({ user: userDocSnap.data() }, { status: 200 });
+    return addNoCacheHeaders(
+      NextResponse.json({ user: userDocSnap.data() }, { status: 200 })
+    );
   } catch (error) {
     console.error('Error fetching user:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return addNoCacheHeaders(
+      NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    );
   }
 }
 
 // Update user data
-export async function PATCH(request: NextRequest, context: any) {
-  const { params } = context;
+export async function PATCH(
+  request: Request,
+  { params }: { params: { userId: string } }
+) {
   try {
     const userId = params.userId;
     const body = await request.json();
 
     // Validate the incoming data - allow only specific fields
     const allowedFields: (keyof Partial<UserData>)[] = ['subscriptionTier', 'role', 'displayName'];
-    const dataToUpdate: Partial<UserData> = {};
+    const dataToUpdate: Record<string, any> = {};
 
     for (const field of allowedFields) {
       if (body[field] !== undefined) {
-        // Use type assertion to satisfy TypeScript, but be cautious
-        (dataToUpdate as Record<string, unknown>)[field] = body[field];
+        dataToUpdate[field] = body[field];
       }
     }
 
-    // Add updatedAt timestamp
-    dataToUpdate.updatedAt = new Date(); // Use client-side Date for now
+    // Add updatedAt timestamp using Admin SDK's server timestamp
+    dataToUpdate.updatedAt = admin.firestore.FieldValue.serverTimestamp();
 
     if (Object.keys(dataToUpdate).length === 1 && 'updatedAt' in dataToUpdate) {
-      return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 });
+      return addNoCacheHeaders(
+        NextResponse.json({ error: 'No valid fields to update' }, { status: 400 })
+      );
     }
 
-    const userDocRef = doc(db, 'users', userId);
-    // Ensure the document exists before updating (optional but good practice)
-    const userDocSnap = await getDoc(userDocRef);
-    if (!userDocSnap.exists()) {
-        return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    const userDocRef = adminDb.collection('users').doc(userId);
+    
+    // Check if user exists first
+    const userDocSnap = await userDocRef.get();
+    if (!userDocSnap.exists) {
+      return addNoCacheHeaders(
+        NextResponse.json({ error: 'User not found' }, { status: 404 })
+      );
     }
     
-    await updateDoc(userDocRef, dataToUpdate);
+    await userDocRef.update(dataToUpdate);
 
-    return NextResponse.json({ message: 'User updated successfully' }, { status: 200 });
+    return addNoCacheHeaders(
+      NextResponse.json({ message: 'User updated successfully' }, { status: 200 })
+    );
   } catch (error) {
     console.error('Error updating user:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return addNoCacheHeaders(
+      NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    );
   }
 }
 
-// Delete user
+// Delete user (Firestore document AND Firebase Auth user)
 export async function DELETE(
-  request: NextRequest,
-  context: any
+  request: Request,
+  { params }: { params: { userId: string } }
 ) {
-  const { params } = context;
   try {
     const userId = params.userId;
     if (!userId) {
-      return NextResponse.json({ error: 'User ID is required' }, { status: 400 });
+      return addNoCacheHeaders(
+        NextResponse.json({ error: 'User ID is required' }, { status: 400 })
+      );
     }
 
-    console.log(`Deleting user ${userId} from Firestore`);
+    console.log(`Attempting to delete user ${userId} from Firestore and Auth.`);
     
-    // Delete user document from Firestore
-    const userDocRef = doc(db, 'users', userId);
-    await deleteDoc(userDocRef);
+    // 1. Delete user document from Firestore using adminDb
+    const userDocRef = adminDb.collection('users').doc(userId);
+    await userDocRef.delete();
+    console.log(`User ${userId} deleted from Firestore.`);
+
+    // 2. Delete user from Firebase Authentication using adminAuth
+    try {
+      await adminAuth.deleteUser(userId);
+      console.log(`User ${userId} deleted from Firebase Auth.`);
+    } catch (authError: any) {
+      // Handle cases where user might exist in Firestore but not Auth
+      if (authError.code === 'auth/user-not-found') {
+        console.warn(`User ${userId} not found in Firebase Auth, only Firestore record deleted.`);
+      } else {
+        // Re-throw other auth errors to be caught by the outer catch block
+        throw authError;
+      }
+    }
     
-    // Note: Deleting from Firebase Authentication requires Admin SDK
-    // This part needs to be handled separately if using client-side SDK here.
-    // await auth.deleteUser(userId); 
-    
-    return NextResponse.json({ 
-      success: true, 
-      message: 'User deleted from Firestore successfully'
-    });
+    return addNoCacheHeaders(
+      NextResponse.json({ 
+        success: true, 
+        message: 'User deleted successfully from Firestore and Authentication.'
+      }, { status: 200 })
+    ); 
     
   } catch (error) {
     console.error('Error deleting user:', error);
     const errorMessage = error instanceof Error ? error.message : 'Internal server error';
-    return NextResponse.json({ error: errorMessage }, { status: 500 });
+    
+    let statusCode = 500;
+    if (error instanceof Error && (error as any).code === 'not-found') {
+      statusCode = 404;
+    }
+
+    return addNoCacheHeaders(
+      NextResponse.json({ error: errorMessage }, { status: statusCode })
+    );
   }
 } 

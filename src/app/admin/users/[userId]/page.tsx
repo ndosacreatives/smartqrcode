@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
@@ -29,9 +29,14 @@ export default function UserDetailPage({ params }: { params: { userId: string } 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [dataVersion, setDataVersion] = useState(0);
   
   // Form state
   const [formData, setFormData] = useState<Partial<UserData>>({});
+  
+  const refreshUserData = useCallback(() => {
+    setDataVersion(prev => prev + 1);
+  }, []);
   
   useEffect(() => {
     const fetchUser = async () => {
@@ -39,7 +44,7 @@ export default function UserDetailPage({ params }: { params: { userId: string } 
         setLoading(true);
         setError(null);
         
-        const response = await fetch(`/api/admin/users/${userId}`);
+        const response = await fetch(`/api/admin/users/${userId}?v=${Date.now()}`);
         if (!response.ok) {
           if (response.status === 404) {
             throw new Error('User not found');
@@ -65,7 +70,7 @@ export default function UserDetailPage({ params }: { params: { userId: string } 
     if (userId) {
       fetchUser();
     }
-  }, [userId]);
+  }, [userId, dataVersion]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -87,6 +92,7 @@ export default function UserDetailPage({ params }: { params: { userId: string } 
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
+          'Cache-Control': 'no-cache'
         },
         body: JSON.stringify(formData),
       });
@@ -99,6 +105,9 @@ export default function UserDetailPage({ params }: { params: { userId: string } 
       
       // Update local user state with the changes
       setUser(prev => prev ? { ...prev, ...formData } : null);
+      
+      // Refresh data from server to ensure we have the latest
+      refreshUserData();
     } catch (err) {
       console.error('Failed to update user:', err);
       setError(err instanceof Error ? err.message : 'Failed to update user');

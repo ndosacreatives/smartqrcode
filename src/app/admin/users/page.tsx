@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 // import { updateUserData } from "@/lib/firestore";
 import { db } from "@/lib/firebase";
 import {
@@ -36,11 +36,18 @@ export default function AdminUsersPage() {
   const [selectedRole, setSelectedRole] = useState('all');
   const [selectedTier, setSelectedTier] = useState('all');
   const [error, setError] = useState<string | null>(null);
+  const [dataVersion, setDataVersion] = useState(0); // Add a version state to force refresh
+
+  // Create a refresh function
+  const refreshData = useCallback(() => {
+    setDataVersion(prev => prev + 1);
+  }, []);
 
   useEffect(() => {
     async function fetchUsers() {
       try {
         setLoading(true);
+        setError(null);
         const response = await fetch('/api/admin/users');
         if (!response.ok) {
           throw new Error(`Error ${response.status}: ${await response.text()}`);
@@ -56,7 +63,7 @@ export default function AdminUsersPage() {
     }
 
     fetchUsers();
-  }, []);
+  }, [dataVersion]); // Add dataVersion to dependencies to trigger refresh
 
   const handleEdit = (user: User) => {
     setEditingUserId(user.id);
@@ -113,8 +120,8 @@ export default function AdminUsersPage() {
 
       const data = await response.json();
       
-      // Add the new user to the state
-      setUsers([...users, data.user]);
+      // Refresh data instead of directly updating state
+      refreshData();
       
       return data;
     } catch (error) {
@@ -141,6 +148,9 @@ export default function AdminUsersPage() {
       
       // Update local state for immediate UI feedback
       setUsers(users.map(u => u.id === userId ? { ...u, role: newRole } : u));
+      // Also refresh data to ensure consistency
+      refreshData();
+      
       alert("User role updated successfully!"); 
     } catch (err) {
       console.error("Error updating user role:", err);
@@ -166,6 +176,9 @@ export default function AdminUsersPage() {
 
       // Update local state for immediate UI feedback
       setUsers(users.map(u => u.id === userId ? { ...u, subscriptionTier: newTier } : u));
+      // Also refresh data to ensure consistency
+      refreshData();
+      
       alert("Subscription tier updated successfully!");
     } catch (err) {
       console.error("Error updating subscription tier:", err);
@@ -190,6 +203,9 @@ export default function AdminUsersPage() {
       
       // Remove user from state
       setUsers(users.filter(user => user.id !== userId));
+      // Also refresh data to ensure consistency
+      refreshData();
+      
     } catch (err) {
       console.error('Failed to delete user:', err);
       alert(err instanceof Error ? err.message : 'Failed to delete user');

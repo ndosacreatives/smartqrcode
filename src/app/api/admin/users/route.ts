@@ -1,30 +1,40 @@
-import { NextResponse } from 'next/server';
-import { db, auth } from '@/lib/firebase-admin';
+import { NextRequest, NextResponse } from 'next/server';
+import { adminDb, adminAuth } from '@/lib/firebase-admin';
 import admin from 'firebase-admin';
 
-export async function GET() {
+// Get all users
+export async function GET(request: NextRequest) {
   try {
-    console.log('Fetching users from Firestore...');
-    // Fetch all users from Firestore using admin SDK
-    const usersSnapshot = await db.collection('users').get();
-    console.log(`Found ${usersSnapshot.size} users in Firestore`);
+    const usersCollection = adminDb.collection('users');
+    const snapshot = await usersCollection.get();
     
-    const users = usersSnapshot.docs.map(doc => {
-      const data = doc.data();
-      console.log(`Processing user: ${doc.id}`);
-      return {
-        id: doc.id,
-        ...data
-      };
-    });
+    const users = snapshot.docs.map(doc => doc.data());
     
-    return NextResponse.json({ users });
+    console.log(`Retrieved ${users.length} users`);
     
+    // Add Cache-Control header to prevent caching
+    return NextResponse.json(
+      { users }, 
+      { 
+        status: 200,
+        headers: {
+          'Cache-Control': 'no-store, max-age=0',
+          'Pragma': 'no-cache'
+        }
+      }
+    );
   } catch (error) {
     console.error('Error fetching users:', error);
-    return NextResponse.json({ 
-      error: error instanceof Error ? error.message : 'Internal server error' 
-    }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Failed to fetch users' }, 
+      { 
+        status: 500,
+        headers: {
+          'Cache-Control': 'no-store, max-age=0',
+          'Pragma': 'no-cache'
+        }
+      }
+    );
   }
 }
 
@@ -41,7 +51,7 @@ export async function POST(request: Request) {
     }
     
     // Create user in Firebase Authentication
-    const userRecord = await auth.createUser({
+    const userRecord = await adminAuth.createUser({
       email,
       password,
       displayName: displayName || undefined,
@@ -51,7 +61,7 @@ export async function POST(request: Request) {
     const now = admin.firestore.Timestamp.now();
     
     // Create user document in Firestore
-    await db.collection('users').doc(userRecord.uid).set({
+    await adminDb.collection('users').doc(userRecord.uid).set({
       id: userRecord.uid,
       email,
       displayName: displayName || null,
