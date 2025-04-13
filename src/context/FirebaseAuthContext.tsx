@@ -10,7 +10,8 @@ import {
   sendPasswordResetEmail,
   updateProfile
 } from 'firebase/auth';
-import { auth } from '@/lib/firebase';
+import { doc, getDoc, setDoc, Timestamp } from 'firebase/firestore';
+import { auth, db } from '@/lib/firebase';
 import { saveUserData, UserData } from '@/lib/firestore';
 
 interface AuthContextType {
@@ -66,8 +67,8 @@ export function FirebaseAuthProvider({ children }: { children: ReactNode }) {
           bulkGenerations: 0,
           aiCustomizations: 0
         },
-        createdAt: new Date(),
-        updatedAt: new Date()
+        createdAt: Timestamp.fromDate(new Date()),
+        updatedAt: Timestamp.fromDate(new Date())
       });
     } finally {
       setLoading(false);
