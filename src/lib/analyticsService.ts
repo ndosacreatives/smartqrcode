@@ -70,17 +70,17 @@ export async function getAnalytics(
     
     // Process scan data from all QR codes
     let totalScans = 0;
-    let scansByDay: Record<string, number> = {};
-    let scansByCountry: Record<string, number> = {};
-    let deviceBreakdown = {
+    const scansByDay: Record<string, number> = {};
+    const scansByCountry: Record<string, number> = {};
+    const deviceBreakdown = {
       mobile: 0,
       desktop: 0,
       tablet: 0,
       other: 0
     };
-    let scansByReferrer: Record<string, number> = {};
-    let uniqueIPs: Set<string> = new Set();
-    let scansByLocation: Record<string, number> = {};
+    const scansByReferrer: Record<string, number> = {};
+    const uniqueIPs: Set<string> = new Set();
+    const scansByLocation: Record<string, number> = {};
     
     // Format date for consistent grouping
     const formatDate = (date: Date) => {

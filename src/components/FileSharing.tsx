@@ -419,7 +419,7 @@ const FileSharing: React.FC = () => {
           
           {sharedFiles.length === 0 ? (
             <Box textAlign="center" py={10} borderWidth="1px" borderRadius="lg">
-              <Text mb={4}>You haven't shared any files yet</Text>
+              <Text mb={4}>You haven&apos;t shared any files yet</Text>
               <Button 
                 colorScheme="blue" 
                 leftIcon={<FiLink />}

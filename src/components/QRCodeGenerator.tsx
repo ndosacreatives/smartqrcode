@@ -146,53 +146,54 @@ export default function QRCodeGenerator({ onDownload }: QRCodeGeneratorProps) {
   ];
 
   useEffect(() => {
+    // Moved function inside useEffect to fix the dependency warning
+    const updateQRValue = () => {
+      let value = '';
+  
+      switch (qrType) {
+        case 'url':
+          value = formValues.url;
+          break;
+        case 'text':
+          value = formValues.text;
+          break;
+        case 'email':
+          value = `mailto:${formValues.email}`;
+          if (formValues.emailSubject) value += `?subject=${encodeURIComponent(formValues.emailSubject)}`;
+          if (formValues.emailBody) value += `${formValues.emailSubject ? '&' : '?'}body=${encodeURIComponent(formValues.emailBody)}`;
+          break;
+        case 'phone':
+          value = `tel:${formValues.phone}`;
+          break;
+        case 'sms':
+          value = `sms:${formValues.smsPhone}`;
+          if (formValues.smsMessage) value += `?body=${encodeURIComponent(formValues.smsMessage)}`;
+          break;
+        case 'contact':
+          // Simple vCard format
+          value = 'BEGIN:VCARD\nVERSION:3.0\n';
+          value += formValues.contactName ? `FN:${formValues.contactName}\n` : '';
+          value += formValues.contactOrg ? `ORG:${formValues.contactOrg}\n` : '';
+          value += formValues.contactPhone ? `TEL:${formValues.contactPhone}\n` : '';
+          value += formValues.contactEmail ? `EMAIL:${formValues.contactEmail}\n` : '';
+          value += formValues.contactAddress ? `ADR:;;${formValues.contactAddress};;;\n` : '';
+          value += formValues.contactUrl ? `URL:${formValues.contactUrl}\n` : '';
+          value += 'END:VCARD';
+          break;
+        case 'wifi':
+          value = `WIFI:T:${formValues.wifiType};S:${formValues.wifiSsid};`;
+          if (formValues.wifiPassword && formValues.wifiType !== 'nopass') {
+            value += `P:${formValues.wifiPassword};`;
+          }
+          value += `H:${formValues.wifiHidden};`;
+          break;
+      }
+  
+      setQrValue(value);
+    };
+    
     updateQRValue();
-  }, [qrType, formValues, updateQRValue]);
-
-  const updateQRValue = () => {
-    let value = '';
-
-    switch (qrType) {
-      case 'url':
-        value = formValues.url;
-        break;
-      case 'text':
-        value = formValues.text;
-        break;
-      case 'email':
-        value = `mailto:${formValues.email}`;
-        if (formValues.emailSubject) value += `?subject=${encodeURIComponent(formValues.emailSubject)}`;
-        if (formValues.emailBody) value += `${formValues.emailSubject ? '&' : '?'}body=${encodeURIComponent(formValues.emailBody)}`;
-        break;
-      case 'phone':
-        value = `tel:${formValues.phone}`;
-        break;
-      case 'sms':
-        value = `sms:${formValues.smsPhone}`;
-        if (formValues.smsMessage) value += `?body=${encodeURIComponent(formValues.smsMessage)}`;
-        break;
-      case 'contact':
-        // Simple vCard format
-        value = 'BEGIN:VCARD\nVERSION:3.0\n';
-        value += formValues.contactName ? `FN:${formValues.contactName}\n` : '';
-        value += formValues.contactOrg ? `ORG:${formValues.contactOrg}\n` : '';
-        value += formValues.contactPhone ? `TEL:${formValues.contactPhone}\n` : '';
-        value += formValues.contactEmail ? `EMAIL:${formValues.contactEmail}\n` : '';
-        value += formValues.contactAddress ? `ADR:;;${formValues.contactAddress};;;\n` : '';
-        value += formValues.contactUrl ? `URL:${formValues.contactUrl}\n` : '';
-        value += 'END:VCARD';
-        break;
-      case 'wifi':
-        value = `WIFI:T:${formValues.wifiType};S:${formValues.wifiSsid};`;
-        if (formValues.wifiPassword && formValues.wifiType !== 'nopass') {
-          value += `P:${formValues.wifiPassword};`;
-        }
-        value += `H:${formValues.wifiHidden};`;
-        break;
-    }
-
-    setQrValue(value);
-  };
+  }, [qrType, formValues]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { id, value } = e.target;
