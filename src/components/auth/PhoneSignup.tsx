@@ -54,33 +54,57 @@ const PhoneSignup: React.FC<PhoneSignupProps> = ({
   
   // Initialize reCAPTCHA when component mounts
   useEffect(() => {
+    let mounted = true;
+    
     const initRecaptcha = async () => {
-      if (recaptchaContainerRef.current && !recaptchaVerifierRef.current) {
-        try {
-          // Clear the container first to avoid potential issues
-          if (recaptchaContainerRef.current) {
-            recaptchaContainerRef.current.innerHTML = '';
-          }
-          
-          const verifier = await setupRecaptcha('recaptcha-container');
+      if (!recaptchaContainerRef.current || recaptchaVerifierRef.current) {
+        return; // Already initialized or no container
+      }
+      
+      try {
+        // Clear the container first to avoid potential issues
+        if (recaptchaContainerRef.current) {
+          recaptchaContainerRef.current.innerHTML = '';
+        }
+        
+        console.log('Initializing reCAPTCHA...');
+        const verifier = await setupRecaptcha('recaptcha-container');
+        
+        // Only set the ref if the component is still mounted
+        if (mounted) {
           recaptchaVerifierRef.current = verifier;
-        } catch (err) {
-          console.error('Failed to initialize reCAPTCHA:', err);
-          setError('Failed to initialize reCAPTCHA verification. Please refresh the page and try again.');
+          console.log('reCAPTCHA initialized successfully');
+        } else {
+          // Component unmounted during initialization, clean up
+          try {
+            (verifier as any).clear?.();
+          } catch (err) {
+            console.error('Error clearing unmounted reCAPTCHA:', err);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to initialize reCAPTCHA:', err);
+        if (mounted) {
+          setError('Failed to initialize verification. Please refresh the page and try again.');
         }
       }
     };
     
     if (!loading) {
-      initRecaptcha();
+      // Small delay to ensure DOM is ready
+      setTimeout(() => {
+        if (mounted) {
+          initRecaptcha();
+        }
+      }, 100);
     }
     
     // Clean up recaptcha when component unmounts
     return () => {
+      mounted = false;
       try {
-        // The recaptcha verifier has a clear method but TypeScript doesn't know it
-        // We use type assertion to tell TS it's safe
         if (recaptchaVerifierRef.current) {
+          console.log('Clearing reCAPTCHA on unmount');
           (recaptchaVerifierRef.current as any).clear?.();
           recaptchaVerifierRef.current = null;
         }
@@ -109,15 +133,29 @@ const PhoneSignup: React.FC<PhoneSignupProps> = ({
     
     try {
       if (!recaptchaVerifierRef.current) {
-        // Try to reinitialize reCAPTCHA
-        await initRecaptcha();
+        // If reCAPTCHA isn't ready, try initializing with a timeout
+        console.log('No reCAPTCHA instance found, attempting to initialize...');
         
-        if (!recaptchaVerifierRef.current) {
-          throw new Error('reCAPTCHA not initialized. Please refresh the page and try again.');
+        // Clear container first
+        if (recaptchaContainerRef.current) {
+          recaptchaContainerRef.current.innerHTML = '';
+        }
+        
+        try {
+          // Create a fresh instance
+          const verifier = await setupRecaptcha('recaptcha-container');
+          recaptchaVerifierRef.current = verifier;
+          console.log('New reCAPTCHA initialized on demand');
+        } catch (initError) {
+          console.error('Failed to initialize reCAPTCHA on demand:', initError);
+          throw new Error('Could not initialize verification system. Please refresh the page and try again.');
         }
       }
       
+      console.log('Sending verification code to:', formattedPhoneNumber);
       const verifyId = await sendPhoneVerificationCode(formattedPhoneNumber, recaptchaVerifierRef.current);
+      
+      console.log('Verification code sent successfully');
       setVerificationId(verifyId);
       setIsCodeSent(true);
       setRecaptchaVerified(true);
@@ -137,16 +175,29 @@ const PhoneSignup: React.FC<PhoneSignupProps> = ({
         setError(err.message || 'Failed to send verification code');
       }
       
-      // Reset recaptcha
-      if (recaptchaVerifierRef.current) {
-        try {
-          // Use type assertion for the clear method
+      // Reset recaptcha only if it exists
+      try {
+        if (recaptchaVerifierRef.current) {
+          console.log('Clearing problematic reCAPTCHA');
           (recaptchaVerifierRef.current as any).clear?.();
-        } catch (clearErr) {
-          console.error('Error clearing reCAPTCHA:', clearErr);
+          recaptchaVerifierRef.current = null;
+          
+          // Try to create a fresh instance after a short delay
+          setTimeout(async () => {
+            try {
+              if (recaptchaContainerRef.current) {
+                recaptchaContainerRef.current.innerHTML = '';
+                const verifier = await setupRecaptcha('recaptcha-container');
+                recaptchaVerifierRef.current = verifier;
+                console.log('Fresh reCAPTCHA created after error');
+              }
+            } catch (e) {
+              console.error('Failed to recreate reCAPTCHA after error:', e);
+            }
+          }, 500);
         }
-        recaptchaVerifierRef.current = null;
-        await initRecaptcha();
+      } catch (clearErr) {
+        console.error('Error clearing reCAPTCHA:', clearErr);
       }
     } finally {
       setAuthLoading(false);
@@ -257,7 +308,15 @@ const PhoneSignup: React.FC<PhoneSignupProps> = ({
             />
           </div>
           
-          <div id="recaptcha-container" className="my-4 flex justify-center" ref={recaptchaContainerRef}></div>
+          {/* reCAPTCHA container - ensure it has adequate height */}
+          <div className="mt-5 mb-5">
+            <p className="text-sm text-gray-500 mb-2">Please complete the verification below:</p>
+            <div 
+              id="recaptcha-container" 
+              className="flex justify-center items-center min-h-[80px] border border-gray-200 rounded p-2" 
+              ref={recaptchaContainerRef}
+            ></div>
+          </div>
           
           <div>
             <button

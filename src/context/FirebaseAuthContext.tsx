@@ -200,6 +200,7 @@ export function FirebaseAuthProvider({ children }: { children: ReactNode }) {
         container.innerHTML = '';
       }
       
+      // Create a new RecaptchaVerifier instance
       const recaptchaVerifier = new RecaptchaVerifier(auth, containerId, {
         'size': 'normal',
         'callback': () => {
@@ -212,16 +213,16 @@ export function FirebaseAuthProvider({ children }: { children: ReactNode }) {
         }
       });
       
-      // Force clear any existing renders before rendering again
+      // Remove the attempt to clear before rendering - this was causing the error
       try {
-        await recaptchaVerifier.clear();
-      } catch (e) {
-        // Ignore errors from clearing non-existent recaptcha
-        console.log('No existing reCAPTCHA to clear');
+        // Render the reCAPTCHA widget
+        await recaptchaVerifier.render();
+        console.log('reCAPTCHA rendered successfully');
+        return recaptchaVerifier;
+      } catch (renderError) {
+        console.error('Error rendering reCAPTCHA:', renderError);
+        throw renderError;
       }
-      
-      await recaptchaVerifier.render();
-      return recaptchaVerifier;
     } catch (error) {
       console.error('Error setting up recaptcha:', error);
       throw error;
