@@ -4,9 +4,9 @@ import { db } from '@/lib/firebase';
 import { UserData } from '@/lib/types';
 
 // Get specific user
-export async function GET(request: Request, context: { params: { userId: string } }) {
+export async function GET(request: Request, { params }: { params: { userId: string } }) {
   try {
-    const userId = context.params.userId;
+    const userId = params.userId;
     const userDocRef = doc(db, 'users', userId);
     const userDocSnap = await getDoc(userDocRef);
 
