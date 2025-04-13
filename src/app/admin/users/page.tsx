@@ -13,36 +13,52 @@ import {
 } from "firebase/firestore";
 import CreateUserModal from '@/components/admin/CreateUserModal';
 import { getSubscriptionDetails, SubscriptionTier } from '@/lib/subscriptions';
+import { useAuth } from '@/context/FirebaseAuthContext';
+import Link from 'next/link';
+
+interface User {
+  id: string;
+  email: string;
+  displayName: string | null;
+  role: string;
+  subscriptionTier: string;
+  createdAt: any; // Firestore timestamp
+}
 
 export default function AdminUsersPage() {
-  const [users, setUsers] = useState<DocumentData[]>([]);
+  const { user } = useAuth();
+  const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
-  const [editingUser, setEditingUser] = useState<DocumentData | null>(null);
+  const [editingUser, setEditingUser] = useState<User | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedRole, setSelectedRole] = useState('all');
+  const [selectedTier, setSelectedTier] = useState('all');
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchUsers = async () => {
-      setLoading(true);
+    async function fetchUsers() {
       try {
-        const usersCollection = collection(db, "users");
-        const usersSnapshot = await getDocs(usersCollection);
-        const usersList = usersSnapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        }));
-        setUsers(usersList);
-      } catch (error) {
-        console.error("Error fetching users:", error);
+        setLoading(true);
+        const response = await fetch('/api/admin/users');
+        if (!response.ok) {
+          throw new Error(`Error ${response.status}: ${await response.text()}`);
+        }
+        const data = await response.json();
+        setUsers(data.users || []);
+      } catch (err) {
+        console.error('Failed to fetch users:', err);
+        setError(err instanceof Error ? err.message : 'Failed to load users');
       } finally {
         setLoading(false);
       }
-    };
+    }
 
     fetchUsers();
   }, []);
 
-  const handleEdit = (user: DocumentData) => {
+  const handleEdit = (user: User) => {
     setEditingUserId(user.id);
     setEditingUser({ ...user });
   };
@@ -54,7 +70,7 @@ export default function AdminUsersPage() {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    setEditingUser((prev: DocumentData | null) => ({ ...prev, [name]: value }));
+    setEditingUser((prev: User | null) => ({ ...prev, [name]: value }));
   };
 
   const handleSaveChanges = async () => {
@@ -74,7 +90,7 @@ export default function AdminUsersPage() {
     }
   };
 
-  const handleCreateUser = async (userData: Partial<DocumentData> & { password?: string }) => {
+  const handleCreateUser = async (userData: Partial<User> & { password?: string }) => {
     // Remove password from userData before typescript complains
     const { password, ...userDataWithoutPassword } = userData;
     
@@ -158,37 +174,43 @@ export default function AdminUsersPage() {
   };
 
   // Add delete user function
-  const handleDeleteUser = async (userId: string, email: string) => {
-    // Ask for confirmation before deleting
-    if (!confirm(`Are you sure you want to delete user with email: ${email}?`)) {
+  const handleDeleteUser = async (userId: string) => {
+    if (!confirm('Are you sure you want to delete this user? This action cannot be undone.')) {
       return;
     }
-
+    
     try {
       const response = await fetch(`/api/admin/users/${userId}`, {
         method: 'DELETE',
       });
-
+      
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to delete user');
+        throw new Error(`Error ${response.status}: ${await response.text()}`);
       }
-
-      // Remove the user from the state
-      setUsers(users.filter(u => u.id !== userId));
-      alert('User deleted successfully!');
+      
+      // Remove user from state
+      setUsers(users.filter(user => user.id !== userId));
     } catch (err) {
-      console.error('Error deleting user:', err);
-      alert('Failed to delete user.');
+      console.error('Failed to delete user:', err);
+      alert(err instanceof Error ? err.message : 'Failed to delete user');
     }
   };
 
   // Helper function to format Timestamp
-  const formatDate = (timestamp: Timestamp | null) => {
-    if (!timestamp) return "N/A";
-    // Convert Firebase Timestamp to JavaScript Date object
-    const date = timestamp.toDate();
-    return date.toLocaleDateString("en-US");
+  const formatDate = (timestamp: any) => {
+    if (!timestamp) return 'N/A';
+    
+    try {
+      // Handle Firestore timestamps or ISO strings
+      const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+      return date.toLocaleDateString(undefined, {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      });
+    } catch (err) {
+      return 'Invalid date';
+    }
   };
 
   // Add this new function
@@ -212,6 +234,19 @@ export default function AdminUsersPage() {
     );
   };
 
+  // Filter users based on search term and filters
+  const filteredUsers = users.filter(user => {
+    const matchesSearch = 
+      searchTerm === '' || 
+      user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (user.displayName && user.displayName.toLowerCase().includes(searchTerm.toLowerCase()));
+    
+    const matchesRole = selectedRole === 'all' || user.role === selectedRole;
+    const matchesTier = selectedTier === 'all' || user.subscriptionTier === selectedTier;
+    
+    return matchesSearch && matchesRole && matchesTier;
+  });
+
   if (loading) return (
     <div className="flex justify-center items-center h-64">
       <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
@@ -220,162 +255,194 @@ export default function AdminUsersPage() {
   );
 
   return (
-    <div>
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">User Management</h1>
-        <div className="flex space-x-2">
-          <button
-            onClick={() => {
-              const fetchUsers = async () => {
-                setLoading(true);
-                try {
-                  const usersCollection = collection(db, "users");
-                  const usersSnapshot = await getDocs(usersCollection);
-                  const usersList = usersSnapshot.docs.map((doc) => ({
-                    id: doc.id,
-                    ...doc.data(),
-                  }));
-                  setUsers(usersList);
-                } catch (error) {
-                  console.error("Error fetching users:", error);
-                } finally {
-                  setLoading(false);
-                }
-              };
+    <div className="px-1 py-4 sm:px-0">
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-gray-900">User Management</h1>
+        <p className="mt-1 text-sm text-gray-600">
+          View and manage all users in the system
+        </p>
+      </div>
 
-              fetchUsers();
-            }}
-            className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-md flex items-center"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clipRule="evenodd" />
-            </svg>
-            Refresh
-          </button>
-          <button
-            onClick={() => setIsCreateModalOpen(true)}
-            className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-md flex items-center"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clipRule="evenodd" />
-            </svg>
-            Add User
-          </button>
+      {/* Filters and Search */}
+      <div className="mb-6 bg-white p-4 rounded-lg shadow-md">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="col-span-1 md:col-span-2">
+            <label htmlFor="search" className="block text-sm font-medium text-gray-700 mb-1">
+              Search Users
+            </label>
+            <input
+              type="text"
+              id="search"
+              placeholder="Search by email or name..."
+              className="w-full p-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+          
+          <div>
+            <label htmlFor="roleFilter" className="block text-sm font-medium text-gray-700 mb-1">
+              Filter by Role
+            </label>
+            <select
+              id="roleFilter"
+              className="w-full p-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+              value={selectedRole}
+              onChange={(e) => setSelectedRole(e.target.value)}
+            >
+              <option value="all">All Roles</option>
+              <option value="admin">Admin</option>
+              <option value="user">User</option>
+              <option value="moderator">Moderator</option>
+            </select>
+          </div>
+          
+          <div>
+            <label htmlFor="tierFilter" className="block text-sm font-medium text-gray-700 mb-1">
+              Filter by Subscription
+            </label>
+            <select
+              id="tierFilter"
+              className="w-full p-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+              value={selectedTier}
+              onChange={(e) => setSelectedTier(e.target.value)}
+            >
+              <option value="all">All Plans</option>
+              <option value="free">Free</option>
+              <option value="pro">Pro</option>
+              <option value="business">Business</option>
+            </select>
+          </div>
+        </div>
+        
+        {/* Actions */}
+        <div className="mt-4 flex justify-between items-center">
+          <div>
+            <span className="text-sm text-gray-600">
+              {filteredUsers.length} {filteredUsers.length === 1 ? 'user' : 'users'} found
+            </span>
+          </div>
+          <div>
+            <button 
+              className="bg-indigo-600 hover:bg-indigo-700 text-white py-2 px-4 rounded-md text-sm font-medium"
+              onClick={() => setIsCreateModalOpen(true)}
+            >
+              Add New User
+            </button>
+          </div>
         </div>
       </div>
 
-      {users.length === 0 ? (
-        <div className="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded relative">
-          <p>No users found. Add a user to get started.</p>
-        </div>
-      ) : (
-        <div className="bg-white shadow-md rounded-lg overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Subscription</th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created At</th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {users.map((user) => (
-                <tr key={user.id}>
-                  {editingUserId === user.id && editingUser ? (
-                    <>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm" colSpan={5}>
-                        <div className="space-y-2">
-                          <div>ID: {user.id}</div>
-                          <input type="email" name="email" value={editingUser.email} onChange={handleInputChange} className="w-full p-1 border rounded" />
-                          <input type="text" name="displayName" value={editingUser.displayName} onChange={handleInputChange} className="w-full p-1 border rounded" />
-                          <select name="subscriptionTier" value={editingUser.subscriptionTier} onChange={handleInputChange} className="w-full p-1 border rounded">
-                            <option value="free">Free</option>
-                            <option value="pro">Pro</option>
-                            <option value="business">Business</option>
-                          </select>
-                          <select name="role" value={editingUser.role} onChange={handleInputChange} className="w-full p-1 border rounded">
-                            <option value="user">User</option>
-                            <option value="admin">Admin</option>
-                          </select>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm">
-                        <button onClick={handleSaveChanges} className="text-green-600 hover:text-green-900 mr-2">Save</button>
-                        <button onClick={handleCancelEdit} className="text-gray-600 hover:text-gray-900">Cancel</button>
-                      </td>
-                    </>
-                  ) : (
-                    <>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{user.displayName || 'N/A'}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{user.email}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        <select 
-                          value={user.role}
-                          onChange={(e) => handleRoleChange(user.id, e.target.value as 'admin' | 'user')}
-                          className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
-                        >
-                          <option value="user">User</option>
-                          <option value="admin">Admin</option>
-                        </select>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        <div className="relative group">
-                          <select 
-                            value={user.subscriptionTier}
-                            onChange={(e) => handleSubscriptionChange(user.id, e.target.value)}
-                            className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
-                          >
-                            <option value="free">Free</option>
-                            <option value="pro">Pro</option>
-                            <option value="business">Business</option>
-                          </select>
-                          <div className="hidden group-hover:block absolute z-10 bg-white p-3 shadow-lg rounded-md border border-gray-200 min-w-[300px] right-0 mt-1">
-                            <div className="text-sm font-medium mb-2">Current Plan: {user.subscriptionTier}</div>
-                            <div className="border-t pt-2">
-                              <div className="mb-3">
-                                <div className="font-bold">Free Plan Features:</div>
-                                {renderFeaturesList('free')}
-                              </div>
-                              <div className="mb-3">
-                                <div className="font-bold">Pro Plan Features:</div>
-                                {renderFeaturesList('pro')}
-                              </div>
-                              <div>
-                                <div className="font-bold">Business Plan Features:</div>
-                                {renderFeaturesList('business')}
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {formatDate(user.createdAt)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <button 
-                          onClick={() => handleEdit(user)}
-                          className="text-indigo-600 hover:text-indigo-900 mr-2"
-                        >
-                          Edit
-                        </button>
-                        <button 
-                          onClick={() => handleDeleteUser(user.id, user.email)}
-                          className="text-red-600 hover:text-red-900"
-                        >
-                          Delete
-                        </button>
-                      </td>
-                    </>
-                  )}
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      {/* Error Message */}
+      {error && (
+        <div className="mb-6 bg-red-50 border-l-4 border-red-500 p-4">
+          <div className="flex">
+            <div className="flex-shrink-0">
+              <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <div className="ml-3">
+              <p className="text-sm text-red-700">
+                {error}
+              </p>
+            </div>
+          </div>
         </div>
       )}
+
+      {/* Users Table */}
+      <div className="bg-white rounded-lg shadow-md overflow-hidden">
+        {loading ? (
+          <div className="p-6 text-center">
+            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600 mx-auto"></div>
+            <p className="mt-2 text-sm text-gray-600">Loading users...</p>
+          </div>
+        ) : filteredUsers.length === 0 ? (
+          <div className="p-6 text-center">
+            <p className="text-gray-500">No users found matching your filters.</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    User
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Subscription
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Role
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Created At
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {filteredUsers.map((user) => (
+                  <tr key={user.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <div className="flex-shrink-0 h-10 w-10 bg-indigo-100 rounded-full flex items-center justify-center">
+                          <span className="text-indigo-800 font-semibold text-sm">
+                            {user.displayName 
+                              ? user.displayName.charAt(0).toUpperCase() 
+                              : user.email.charAt(0).toUpperCase()}
+                          </span>
+                        </div>
+                        <div className="ml-4">
+                          <div className="text-sm font-medium text-gray-900">
+                            {user.displayName || 'No Name'}
+                          </div>
+                          <div className="text-sm text-gray-500">
+                            {user.email}
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                        ${user.subscriptionTier === 'pro' ? 'bg-green-100 text-green-800' : 
+                        user.subscriptionTier === 'business' ? 'bg-purple-100 text-purple-800' : 
+                        'bg-gray-100 text-gray-800'}`}>
+                        {user.subscriptionTier?.charAt(0).toUpperCase() + user.subscriptionTier?.slice(1) || 'Free'}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                        ${user.role === 'admin' ? 'bg-red-100 text-red-800' : 
+                        user.role === 'moderator' ? 'bg-blue-100 text-blue-800' : 
+                        'bg-gray-100 text-gray-800'}`}>
+                        {user.role?.charAt(0).toUpperCase() + user.role?.slice(1) || 'User'}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {formatDate(user.createdAt)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                      <Link href={`/admin/users/${user.id}`} className="text-indigo-600 hover:text-indigo-900 mr-4">
+                        Edit
+                      </Link>
+                      <button 
+                        onClick={() => handleDeleteUser(user.id)}
+                        className="text-red-600 hover:text-red-900"
+                      >
+                        Delete
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
 
       {/* User Creation Modal */}
       <CreateUserModal 
