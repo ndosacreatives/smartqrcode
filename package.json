@@ -4,10 +4,9 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
-    "build": "NEXT_DISABLE_TYPESCRIPT_AND_ESLINT=1 next build",
+    "build": "next build",
     "start": "next start",
-    "lint": "next lint",
-    "netlify-build": "NEXT_DISABLE_TYPESCRIPT_AND_ESLINT=1 next build"
+    "lint": "next lint"
   },
   "dependencies": {
     "@chakra-ui/react": "^2.8.2",
