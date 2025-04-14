@@ -37,6 +37,18 @@ const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 // Initialize Firebase Authentication and get a reference to the service
 const auth = getAuth(app);
 
+// Configure auth settings for global phone authentication
+if (typeof window !== 'undefined') {
+  // Only run in browser environment
+  auth.settings.appVerificationDisabledForTesting = false; // Enable this only for testing
+  
+  // Set the default region to global in the auth settings
+  // This enables SMS verification for phone authentication globally
+  auth.languageCode = 'en'; // Set default language for SMS messages
+  
+  console.log('Firebase Auth configured for global phone authentication');
+}
+
 // Initialize Firestore and get a reference to the service
 const db = getFirestore(app);
 

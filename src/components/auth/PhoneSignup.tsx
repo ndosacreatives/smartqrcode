@@ -77,6 +77,8 @@ const PhoneSignup = () => {
         errorMessage = 'Too many requests. Please try again later.';
       } else if (error.code === 'auth/captcha-check-failed') {
         errorMessage = 'reCAPTCHA verification failed. Please refresh the page and try again.';
+      } else if (error.code === 'auth/operation-not-allowed') {
+        errorMessage = 'Phone authentication is not enabled for this region. Please contact the app administrator.';
       } else if (error.message) {
         errorMessage = error.message;
       }

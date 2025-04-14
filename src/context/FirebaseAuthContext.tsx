@@ -17,7 +17,8 @@ import {
   signInWithPhoneNumber,
   linkWithCredential,
   signInWithCredential,
-  AuthCredential
+  AuthCredential,
+  ConfirmationResult
 } from 'firebase/auth';
 import { doc, getDoc, setDoc, updateDoc, Timestamp } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
@@ -35,9 +36,9 @@ interface AuthContextType {
   loginWithGoogle: () => Promise<void>;
   updateUserProfile: (displayName: string) => Promise<void>;
   // Phone authentication methods
-  setupRecaptcha: (containerId: string) => Promise<RecaptchaVerifier>;
-  sendPhoneVerificationCode: (phoneNumber: string, recaptchaVerifier: RecaptchaVerifier) => Promise<string>;
-  verifyPhoneCode: (verificationId: string, code: string, displayName?: string) => Promise<void>;
+  setupRecaptcha: (buttonId: string) => Promise<RecaptchaVerifier>;
+  sendPhoneVerificationCode: (phoneNumber: string, recaptchaVerifier: RecaptchaVerifier) => Promise<ConfirmationResult>;
+  verifyPhoneCode: (confirmationResult: ConfirmationResult, verificationCode: string, displayName?: string) => Promise<User>;
   linkPhoneWithCurrentUser: (phoneNumber: string, recaptchaVerifier: RecaptchaVerifier) => Promise<string>;
   verifyPhoneLinkCode: (verificationId: string, code: string) => Promise<void>;
 }
@@ -190,112 +191,124 @@ export function FirebaseAuthProvider({ children }: { children: ReactNode }) {
     await sendPasswordResetEmail(auth, email);
   };
 
-  // Setup recaptcha for phone auth
-  const setupRecaptcha = async (containerId: string): Promise<RecaptchaVerifier> => {
+  // Setup recaptcha verifier
+  const setupRecaptcha = async (buttonId: string): Promise<RecaptchaVerifier> => {
     try {
-      // Clean up any existing reCAPTCHA widgets before creating a new one
-      const container = document.getElementById(containerId);
-      if (container) {
-        // Clear the container to avoid multiple instances
-        container.innerHTML = '';
+      // Clean up any existing recaptcha verifier
+      if (window.recaptchaVerifier) {
+        try {
+          window.recaptchaVerifier.clear();
+          window.recaptchaVerifier = null;
+        } catch (error) {
+          console.error('Error clearing existing recaptcha:', error);
+        }
       }
-      
-      // Create a new RecaptchaVerifier instance
-      const recaptchaVerifier = new RecaptchaVerifier(auth, containerId, {
-        'size': 'normal',
-        'callback': () => {
-          // reCAPTCHA solved, allow signInWithPhoneNumber.
-          console.log('reCAPTCHA verified successfully');
+
+      // Create a new invisible recaptcha verifier
+      const recaptchaVerifier = new RecaptchaVerifier(auth, buttonId, {
+        size: 'invisible',
+        callback: () => {
+          console.log('Captcha resolved');
         },
         'expired-callback': () => {
-          // Response expired. Ask user to solve reCAPTCHA again.
-          console.log('reCAPTCHA verification expired');
+          console.log('Captcha expired');
         }
       });
+
+      // Store the verifier globally
+      window.recaptchaVerifier = recaptchaVerifier;
       
-      // Remove the attempt to clear before rendering - this was causing the error
-      try {
-        // Render the reCAPTCHA widget
-        await recaptchaVerifier.render();
-        console.log('reCAPTCHA rendered successfully');
-        return recaptchaVerifier;
-      } catch (renderError) {
-        console.error('Error rendering reCAPTCHA:', renderError);
-        throw renderError;
-      }
+      // Render the recaptcha to ensure it's ready
+      await recaptchaVerifier.render();
+      
+      return recaptchaVerifier;
     } catch (error) {
       console.error('Error setting up recaptcha:', error);
       throw error;
     }
   };
-  
-  // Send verification code for phone sign-in
+
+  // Send phone verification code
   const sendPhoneVerificationCode = async (
-    phoneNumber: string, 
+    phoneNumber: string,
     recaptchaVerifier: RecaptchaVerifier
-  ): Promise<string> => {
+  ): Promise<ConfirmationResult> => {
     try {
-      setLoading(true);
-      const confirmationResult = await signInWithPhoneNumber(auth, phoneNumber, recaptchaVerifier);
-      return confirmationResult.verificationId;
-    } catch (error) {
+      // Make sure phone number is in international format (E.164)
+      let formattedNumber = phoneNumber;
+      if (!formattedNumber.startsWith('+')) {
+        formattedNumber = `+${formattedNumber}`;
+      }
+      
+      // Set language code before sending verification code
+      auth.languageCode = 'en';
+      
+      console.log(`Sending verification code to ${formattedNumber}`);
+      
+      // Send verification code using Firebase
+      const confirmationResult = await signInWithPhoneNumber(auth, formattedNumber, recaptchaVerifier);
+      
+      console.log('Verification code sent successfully');
+      window.confirmationResult = confirmationResult;
+      return confirmationResult;
+    } catch (error: any) {
       console.error('Error sending verification code:', error);
+      
+      // Handle specific error for region not enabled
+      if (error.code === 'auth/operation-not-allowed') {
+        console.error('Phone authentication is not enabled in the Firebase console or region is not allowed.');
+        throw new Error(
+          'Phone authentication has not been enabled for this region. Please contact the app administrator.'
+        );
+      }
+      
       throw error;
-    } finally {
-      setLoading(false);
     }
   };
-  
-  // Verify phone code and sign in or sign up user
+
+  // Verify phone code
   const verifyPhoneCode = async (
-    verificationId: string, 
-    code: string,
+    confirmationResult: ConfirmationResult,
+    verificationCode: string,
     displayName?: string
-  ): Promise<void> => {
+  ) => {
     try {
-      setLoading(true);
+      const userCredential = await confirmationResult.confirm(verificationCode);
       
-      // Create the phone auth credential
-      const phoneCredential = PhoneAuthProvider.credential(verificationId, code);
+      // Update display name if provided
+      if (displayName && userCredential.user) {
+        await updateProfile(userCredential.user, {
+          displayName: displayName
+        });
+      }
       
-      // Sign in with the credential
-      const userCredential = await signInWithCredential(auth, phoneCredential);
-      
-      // Check if this is a new user 
-      const userDocRef = doc(db, 'users', userCredential.user.uid);
-      const userDoc = await getDoc(userDocRef);
-      
-      if (!userDoc.exists()) {
-        // New user - create their profile
-        // If displayName is provided, update the user profile
-        if (displayName) {
-          await updateProfile(userCredential.user, { displayName });
-        }
-        
-        // Save user to Firestore with proper structure
-        await saveUserData({
+      // Save user data
+      if (userCredential.user) {
+        // Create userData object to merge with the user
+        const userData: Partial<UserData> = {
           id: userCredential.user.uid,
-          email: userCredential.user.email || '',
+          authProvider: 'phone',
           phoneNumber: userCredential.user.phoneNumber || '',
           displayName: displayName || userCredential.user.displayName || '',
-          subscriptionTier: 'free',
+          email: userCredential.user.email || '',
           role: 'user',
+          subscriptionTier: 'free',
           featuresUsage: {
             qrCodesGenerated: 0,
             barcodesGenerated: 0,
             bulkGenerations: 0,
             aiCustomizations: 0
-          },
-          createdAt: Timestamp.fromDate(new Date()),
-          updatedAt: Timestamp.fromDate(new Date()),
-          authProvider: 'phone',
-        });
+          }
+        };
+        
+        // Call saveUserData with the userData object
+        await saveUserData(userData as UserData);
       }
+      
+      return userCredential.user;
     } catch (error) {
-      console.error('Error verifying phone code:', error);
+      console.error('Error verifying code:', error);
       throw error;
-    } finally {
-      setLoading(false);
     }
   };
   
