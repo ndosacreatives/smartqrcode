@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { adminDb, adminAuth } from '@/lib/firebase-admin';
 import admin from 'firebase-admin';
 import { getUserFromRequest } from '@/lib/api-auth';
+import { cancelStripeSubscription } from '@/lib/stripe';
 
 // Add no-cache headers to response
 const addNoCacheHeaders = (response: NextResponse) => {
@@ -67,6 +68,20 @@ export async function POST(
       );
     }
     
+    // Get the Stripe subscription ID
+    const stripeSubscriptionId = subscriptionData?.stripeSubscriptionId;
+    
+    // If there's a Stripe subscription ID, cancel in Stripe as well
+    if (stripeSubscriptionId) {
+      try {
+        // Cancel the subscription in Stripe
+        await cancelStripeSubscription(stripeSubscriptionId);
+      } catch (stripeError) {
+        console.error('Error canceling Stripe subscription:', stripeError);
+        // Continue with local cancellation even if Stripe fails
+      }
+    }
+    
     // Update the subscription status to canceled
     const now = admin.firestore.Timestamp.now();
     await subscriptionRef.update({
@@ -75,9 +90,6 @@ export async function POST(
       updatedAt: now,
       canceledAt: now
     });
-    
-    // In a real system, you might need to call a payment provider API here
-    // to cancel the subscription at the payment processor
     
     return addNoCacheHeaders(
       NextResponse.json({ 
