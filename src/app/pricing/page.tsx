@@ -1,16 +1,20 @@
 "use client";
 
-import React from 'react';
+import React, { useState } from 'react';
 import { subscriptionFeatures, subscriptionPricing, SubscriptionTier } from '@/lib/subscriptions';
 import { useAuth } from '@/context/FirebaseAuthContext';
 import { useSubscription } from '@/context/SubscriptionProvider';
 import { useRouter } from 'next/navigation';
 import { updateUserData } from '@/lib/firestore';
+import PaymentProviderSelector, { PaymentProvider } from '@/components/PaymentProviderSelector';
 
 export default function PricingPage() {
   const { user } = useAuth();
   const { subscriptionTier, loading } = useSubscription();
   const router = useRouter();
+  const [isCheckingOut, setIsCheckingOut] = useState(false);
+  const [selectedProvider, setSelectedProvider] = useState<PaymentProvider>('stripe');
+  const [selectedTier, setSelectedTier] = useState<SubscriptionTier | null>(null);
 
   const handleUpgrade = async (tier: SubscriptionTier) => {
     if (!user) {
@@ -18,17 +22,54 @@ export default function PricingPage() {
       return;
     }
 
+    // Set the tier for the checkout process
+    setSelectedTier(tier);
+    setIsCheckingOut(true);
+    
+    // Scroll to the checkout section
+    window.scrollTo({
+      top: document.body.scrollHeight,
+      behavior: 'smooth',
+    });
+  };
+
+  const handleCheckout = async () => {
+    if (!user || !selectedTier) return;
+
     try {
-      // In a real app, this would redirect to a checkout page
-      // For demo purposes, we'll just update the user's subscription directly
-      await updateUserData(user.uid, { subscriptionTier: tier });
-      alert(`Subscription upgraded to ${tier} successfully!`);
+      // Show loading state
+      setIsCheckingOut(true);
       
-      // In a real app, you might want to redirect to a success page or dashboard
-      router.push('/dashboard');
+      // Create checkout session via API
+      const response = await fetch('/api/checkout/create-session', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          planId: selectedTier,
+          provider: selectedProvider,
+          successUrl: `${window.location.origin}/account/subscription?success=true`,
+          cancelUrl: `${window.location.origin}/pricing?canceled=true`,
+        }),
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to create checkout session');
+      }
+      
+      const data = await response.json();
+      
+      // Redirect to checkout page
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        throw new Error('No checkout URL received');
+      }
     } catch (error) {
-      console.error('Error upgrading subscription:', error);
-      alert('Failed to upgrade subscription. Please try again.');
+      console.error('Error starting checkout:', error);
+      alert('Failed to start checkout process. Please try again.');
+      setIsCheckingOut(false);
     }
   };
 
@@ -235,6 +276,43 @@ export default function PricingPage() {
             </div>
           </div>
         </div>
+        
+        {/* Checkout Section */}
+        {isCheckingOut && selectedTier && (
+          <div className="mt-16 bg-white shadow overflow-hidden sm:rounded-lg">
+            <div className="px-4 py-5 sm:px-6">
+              <h2 className="text-lg font-medium text-gray-900">
+                Checkout: {selectedTier.charAt(0).toUpperCase() + selectedTier.slice(1)} Plan
+              </h2>
+              <p className="mt-1 max-w-2xl text-sm text-gray-500">
+                Complete your subscription upgrade
+              </p>
+            </div>
+            <div className="border-t border-gray-200 px-4 py-5 sm:p-6">
+              <div className="mb-6">
+                <PaymentProviderSelector
+                  selectedProvider={selectedProvider}
+                  onSelectProvider={setSelectedProvider}
+                />
+              </div>
+              
+              <div className="mt-8 flex flex-col sm:flex-row sm:justify-between space-y-4 sm:space-y-0">
+                <button
+                  onClick={() => setIsCheckingOut(false)}
+                  className="inline-flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleCheckout}
+                  className="inline-flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none"
+                >
+                  Continue to Checkout
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
