@@ -1,17 +1,26 @@
 import Flutterwave from 'flutterwave-node-v3';
+import { getCredential } from '@/lib/credentials';
 
-// Initialize Flutterwave
-const publicKey = process.env.FLUTTERWAVE_PUBLIC_KEY || '';
-const secretKey = process.env.FLUTTERWAVE_SECRET_KEY || '';
-const encryptionKey = process.env.FLUTTERWAVE_ENCRYPTION_KEY || '';
+// Initialize Flutterwave with lazy loading
+let flutterwaveClient: any = null;
 
-// Make sure credentials are available
-if (!publicKey || !secretKey) {
-  console.warn('Missing Flutterwave credentials (FLUTTERWAVE_PUBLIC_KEY and/or FLUTTERWAVE_SECRET_KEY)');
+// Get Flutterwave client
+async function getFlutterwaveClient() {
+  if (!flutterwaveClient) {
+    const publicKey = await getCredential('FLUTTERWAVE_PUBLIC_KEY');
+    const secretKey = await getCredential('FLUTTERWAVE_SECRET_KEY');
+    
+    // Make sure credentials are available
+    if (!publicKey || !secretKey) {
+      console.warn('Missing Flutterwave credentials (FLUTTERWAVE_PUBLIC_KEY and/or FLUTTERWAVE_SECRET_KEY)');
+      throw new Error('Flutterwave credentials not configured');
+    }
+    
+    flutterwaveClient = new Flutterwave(publicKey, secretKey);
+  }
+  
+  return flutterwaveClient;
 }
-
-// Create Flutterwave client
-const flw = new Flutterwave(publicKey, secretKey);
 
 // Create a payment link with Flutterwave
 export async function createFlutterwavePaymentLink({
@@ -36,6 +45,9 @@ export async function createFlutterwavePaymentLink({
   metadata?: Record<string, any>;
 }) {
   try {
+    // Get Flutterwave client
+    const flw = await getFlutterwaveClient();
+    
     // Prepare payment payload
     const payload: any = {
       tx_ref: reference,
@@ -87,6 +99,9 @@ export async function createFlutterwavePaymentLink({
 // Verify a Flutterwave transaction
 export async function verifyFlutterwaveTransaction(transactionId: string) {
   try {
+    // Get Flutterwave client
+    const flw = await getFlutterwaveClient();
+    
     const response = await flw.Transaction.verify({ id: transactionId });
 
     if (response.status !== 'success') {
@@ -176,11 +191,11 @@ export async function cancelFlutterwaveSubscription(customerId: string, subscrip
 }
 
 // Get Flutterwave public key for client-side rendering
-export function getFlutterwavePublicKey() {
-  return publicKey;
+export async function getFlutterwavePublicKey() {
+  return await getCredential('FLUTTERWAVE_PUBLIC_KEY');
 }
 
 // Get Flutterwave encryption key for client-side encryption
-export function getFlutterwaveEncryptionKey() {
-  return encryptionKey;
+export async function getFlutterwaveEncryptionKey() {
+  return await getCredential('FLUTTERWAVE_ENCRYPTION_KEY');
 } 

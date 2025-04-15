@@ -1,28 +1,42 @@
 import paypal from '@paypal/checkout-server-sdk';
+import { getCredential } from '@/lib/credentials';
 
-// Initialize PayPal environment
-const clientId = process.env.PAYPAL_CLIENT_ID || '';
-const clientSecret = process.env.PAYPAL_CLIENT_SECRET || '';
-const isProduction = process.env.NODE_ENV === 'production';
+// Define PayPal types
+type PayPalEnvironment = any;
+type PayPalHttpClient = any;
 
-// Make sure credentials are available
-if (!clientId || !clientSecret) {
-  console.warn('Missing PayPal credentials (PAYPAL_CLIENT_ID and/or PAYPAL_CLIENT_SECRET)');
-}
+// Initialize PayPal environment with async credentials
+let paypalClient: PayPalHttpClient | null = null;
 
 // Create PayPal environment
-function environment() {
-  const sandboxEnvironment = new paypal.core.SandboxEnvironment(clientId, clientSecret);
-  const liveEnvironment = new paypal.core.LiveEnvironment(clientId, clientSecret);
+async function getEnvironment(): Promise<PayPalEnvironment> {
+  const clientId = await getCredential('PAYPAL_CLIENT_ID');
+  const clientSecret = await getCredential('PAYPAL_CLIENT_SECRET');
+  const isProduction = process.env.NODE_ENV === 'production';
+  
+  // Make sure credentials are available
+  if (!clientId || !clientSecret) {
+    console.warn('Missing PayPal credentials (PAYPAL_CLIENT_ID and/or PAYPAL_CLIENT_SECRET)');
+    throw new Error('PayPal credentials not configured');
+  }
   
   return isProduction
-    ? liveEnvironment
-    : sandboxEnvironment;
+    ? new (paypal as any).core.LiveEnvironment(clientId, clientSecret)
+    : new (paypal as any).core.SandboxEnvironment(clientId, clientSecret);
 }
 
 // Create PayPal client
-function client() {
-  return new paypal.core.PayPalHttpClient(environment());
+async function getClient(): Promise<PayPalHttpClient> {
+  if (!paypalClient) {
+    const environment = await getEnvironment();
+    paypalClient = new (paypal as any).core.PayPalHttpClient(environment);
+  }
+  return paypalClient;
+}
+
+// Get PayPal client ID for client-side rendering
+export async function getPayPalClientId() {
+  return await getCredential('PAYPAL_CLIENT_ID');
 }
 
 // Create order for a one-time payment
@@ -42,8 +56,11 @@ export async function createPayPalOrder({
   cancelUrl: string;
 }) {
   try {
+    // Get PayPal client
+    const client = await getClient();
+    
     // Create order request
-    const request = new paypal.orders.OrdersCreateRequest();
+    const request = new (paypal as any).orders.OrdersCreateRequest();
     request.prefer('return=representation');
     
     // Set request body
@@ -69,7 +86,7 @@ export async function createPayPalOrder({
     });
     
     // Send API request to create order
-    const response = await client().execute(request);
+    const response = await client.execute(request);
     
     // Get order ID and approval URL
     const orderId = response.result.id;
@@ -88,12 +105,15 @@ export async function createPayPalOrder({
 // Capture payment for an approved order
 export async function capturePayPalOrder(orderId: string) {
   try {
+    // Get PayPal client
+    const client = await getClient();
+    
     // Create capture request
-    const request = new paypal.orders.OrdersCaptureRequest(orderId);
+    const request = new (paypal as any).orders.OrdersCaptureRequest(orderId);
     request.prefer('return=representation');
     
     // Send API request to capture payment
-    const response = await client().execute(request);
+    const response = await client.execute(request);
     
     // Check if capture was successful
     const captureStatus = response.result.status;
@@ -124,8 +144,11 @@ export async function createPayPalSubscription({
   customerId?: string;
 }) {
   try {
+    // Get PayPal client
+    const client = await getClient();
+    
     // Create subscription request
-    const request = new paypal.subscriptions.SubscriptionsCreateRequest();
+    const request = new (paypal as any).subscriptions.SubscriptionsCreateRequest();
     
     // Set request body
     const requestBody: any = {
@@ -150,7 +173,7 @@ export async function createPayPalSubscription({
     request.requestBody(requestBody);
     
     // Send API request to create subscription
-    const response = await client().execute(request);
+    const response = await client.execute(request);
     
     // Get subscription ID and approval URL
     const subscriptionId = response.result.id;
@@ -169,8 +192,11 @@ export async function createPayPalSubscription({
 // Cancel a PayPal subscription
 export async function cancelPayPalSubscription(subscriptionId: string, reason: string = 'Canceled by user') {
   try {
+    // Get PayPal client
+    const client = await getClient();
+    
     // Create cancel request
-    const request = new paypal.subscriptions.SubscriptionsCancelRequest(subscriptionId);
+    const request = new (paypal as any).subscriptions.SubscriptionsCancelRequest(subscriptionId);
     
     // Set request body with reason
     request.requestBody({
@@ -178,7 +204,7 @@ export async function cancelPayPalSubscription(subscriptionId: string, reason: s
     });
     
     // Send API request to cancel subscription
-    await client().execute(request);
+    await client.execute(request);
     
     return {
       success: true,
@@ -188,9 +214,4 @@ export async function cancelPayPalSubscription(subscriptionId: string, reason: s
     console.error('Error canceling PayPal subscription:', error);
     throw new Error('Failed to cancel PayPal subscription');
   }
-}
-
-// Get PayPal client ID for client-side rendering
-export function getPayPalClientId() {
-  return clientId;
 } 
