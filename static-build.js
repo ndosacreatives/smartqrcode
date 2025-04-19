@@ -149,7 +149,7 @@ try {
   
   // Create placeholder files for admin, account, etc. to avoid build errors
   console.log('📝 Creating placeholder files for excluded sections...');
-  const placeholderFilesCreated: string[] = []; // Keep track of placeholders
+  const placeholderFilesCreated = []; // Keep track of placeholders
   pagesToExclude.forEach(page => {
     if (page !== '/api') { // Skip API routes
       const placeholderPath = path.join(appDir, page.substring(1), 'page.tsx');
