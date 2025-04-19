@@ -66,9 +66,11 @@ export default function Header() {
                 Dashboard
               </Link>
             )}
-            <Link href="/admin" className="text-gray-700 hover:text-indigo-600 font-bold transition-colors border border-gray-500 px-3 py-1 rounded-md">
-               Admin Panel (Public)
-            </Link>
+            {user && 'role' in user && user.role === 'admin' && (
+              <Link href="/admin?public=true" className="text-gray-700 hover:text-indigo-600 font-bold transition-colors border border-gray-500 px-3 py-1 rounded-md">
+                Admin Panel (Public)
+              </Link>
+            )}
           </nav>
 
           {/* Auth Buttons */}
@@ -154,7 +156,11 @@ export default function Header() {
                   Dashboard
                 </Link>
               )}
-              <Link href="/admin" className="text-gray-700 hover:text-indigo-600 font-bold transition-colors py-2 border-t border-gray-100 pt-3" onClick={() => setIsMobileMenuOpen(false)}>Admin Panel (Public)</Link>
+              {user && 'role' in user && user.role === 'admin' && (
+                <Link href="/admin?public=true" className="text-gray-700 hover:text-indigo-600 font-bold transition-colors py-2 border-t border-gray-100 pt-3" onClick={() => setIsMobileMenuOpen(false)}>
+                  Admin Panel (Public)
+                </Link>
+              )}
               <div className="flex items-center justify-between pt-3 border-t border-gray-100">
                 {loading ? (
                   <div className="h-8 w-16 rounded-lg bg-gray-200 animate-pulse"></div>

@@ -40,11 +40,15 @@ export default function PricingPage() {
       // Show loading state
       setIsCheckingOut(true);
       
+      // Get the Firebase ID token for authentication
+      const idToken = await user.getIdToken();
+      
       // Create checkout session via API
       const response = await fetch('/api/checkout/create-session', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${idToken}` // Add the authentication token
         },
         body: JSON.stringify({
           planId: selectedTier,
@@ -54,11 +58,14 @@ export default function PricingPage() {
         }),
       });
       
-      if (!response.ok) {
-        throw new Error('Failed to create checkout session');
-      }
-      
+      // Parse the JSON response even if it's an error
       const data = await response.json();
+      
+      if (!response.ok) {
+        // Get the specific error message from the API
+        const errorMessage = data.error || 'Failed to create checkout session';
+        throw new Error(errorMessage);
+      }
       
       // Redirect to checkout page
       if (data.url) {
@@ -68,7 +75,8 @@ export default function PricingPage() {
       }
     } catch (error) {
       console.error('Error starting checkout:', error);
-      alert('Failed to start checkout process. Please try again.');
+      // Show a more descriptive error message
+      alert(`Checkout error: ${error instanceof Error ? error.message : 'Unknown error. Please try again.'}`);
       setIsCheckingOut(false);
     }
   };

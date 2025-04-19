@@ -59,8 +59,27 @@ export default function SignupPage() {
     try {
       setAuthLoading(true);
       setError(null);
-      await register(formData.email, formData.password, formData.displayName);
-      // Successfully registered and logged in, useEffect will handle redirect
+      const success = await register({
+        id: '', // Will be set by Firebase
+        email: formData.email,
+        password: formData.password,
+        displayName: formData.displayName || null,
+        role: 'user',
+        subscriptionTier: 'free',
+        createdAt: new Date() as any, // TypeScript fix
+        updatedAt: new Date() as any, // TypeScript fix
+        featuresUsage: {
+          qrCodesGenerated: 0,
+          barcodesGenerated: 0,
+          bulkGenerations: 0,
+          aiCustomizations: 0
+        }
+      });
+      
+      if (success) {
+        // Redirect to verification page instead of profile
+        router.push('/verify-account');
+      }
     } catch (err: any) {
       console.error('Registration error:', err);
       let errorMessage = 'Failed to sign up';
@@ -121,6 +140,25 @@ export default function SignupPage() {
               sign in to your existing account
             </Link>
           </p>
+        </div>
+        
+        <div className="rounded-md bg-blue-50 p-4">
+          <div className="flex">
+            <div className="flex-shrink-0">
+              <svg className="h-5 w-5 text-blue-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <div className="ml-3">
+              <h3 className="text-sm font-medium text-blue-800">Verification Required</h3>
+              <div className="mt-2 text-sm text-blue-700">
+                <p>
+                  For security purposes, you'll need to verify your email or phone number after signup.
+                  Each email or phone number can only be used for one account.
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
         
         {error && (

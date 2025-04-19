@@ -7,8 +7,8 @@ interface SettingsData {
   firebaseAuthDomain: string;
   firebaseProjectId: string;
   someOtherApiKey: string;
-  // Potentially store the service account file path if used
-  firebaseServiceAccountPath?: string; 
+  // Always make sure this is a string, not undefined
+  firebaseServiceAccountPath: string; 
 }
 
 export default function SettingsForm() {
@@ -17,7 +17,7 @@ export default function SettingsForm() {
     firebaseAuthDomain: '',
     firebaseProjectId: '',
     someOtherApiKey: '',
-    firebaseServiceAccountPath: '' // Initialize new field
+    firebaseServiceAccountPath: '' // Initialize with empty string, not undefined
   });
   // State to manage which Firebase config method is selected
   const [firebaseAuthMethod, setFirebaseAuthMethod] = useState<'manual' | 'file'>('manual');
@@ -39,13 +39,19 @@ export default function SettingsForm() {
   };
   
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      setSelectedFile(e.target.files[0]);
-      // Optionally update a state holding the path/filename for display
-      setSettings(prev => ({ ...prev, firebaseServiceAccountPath: e.target.files?.[0].name || ''}));
+    // Add null check for e.target.files
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      setSelectedFile(files[0]);
+      // Always set to a string, never undefined
+      setSettings(prev => ({ 
+        ...prev, 
+        firebaseServiceAccountPath: files[0].name 
+      }));
     } else {
       setSelectedFile(null);
-      setSettings(prev => ({ ...prev, firebaseServiceAccountPath: ''}));
+      // Set to empty string, not undefined
+      setSettings(prev => ({ ...prev, firebaseServiceAccountPath: '' }));
     }
   };
 
@@ -160,7 +166,16 @@ export default function SettingsForm() {
               </div>
               <div>
                   <label htmlFor="firebaseServiceAccountPath" className={labelStyle}>Service Account Path (Info)</label>
-                  <input type="text" id="firebaseServiceAccountPath" name="firebaseServiceAccountPath" value={settings.firebaseServiceAccountPath || ''} readOnly className={inputStyle} placeholder="Path set via environment variable" />
+                  <input 
+                      type="text" 
+                      id="firebaseServiceAccountPath" 
+                      name="firebaseServiceAccountPath" 
+                      // Ensure this is always a string
+                      value={settings.firebaseServiceAccountPath} 
+                      readOnly 
+                      className={inputStyle} 
+                      placeholder="Path set via environment variable" 
+                  />
                   <p className="text-xs text-gray-500 mt-1">This read-only field shows the detected path if set via environment variables.</p>
               </div>
             </div>
