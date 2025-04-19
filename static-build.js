@@ -130,7 +130,13 @@ const pagesToExclude = [
   '/auth',          // Authentication pages
   '/admin-login',   // Admin login page
   '/bulk',          // Bulk operations
-  '/dashboard'      // User dashboard
+  '/dashboard',     // User dashboard
+  '/subscription',  // Subscription pages
+  '/checkout',      // Checkout pages
+  '/success',       // Payment success pages
+  '/cancel',        // Payment cancel pages
+  '/profile',       // User profile pages
+  '/payment'        // Payment pages
 ];
 
 // Store references to moved directories
@@ -150,6 +156,9 @@ try {
       createRedirectPage(path.join(appDir, page.substring(1), 'page.tsx'));
     }
   });
+  
+  // Also create specific redirect for pricing page that holds checkout UI
+  createRedirectPage(path.join(appDir, 'pricing', 'checkout', 'page.tsx'));
   
   // Set environment variables for static build
   process.env.NEXT_SKIP_API_ROUTES = 'true';

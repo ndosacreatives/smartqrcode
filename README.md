@@ -99,19 +99,57 @@ You don't need to change these settings unless you have specific requirements.
 
 Set the following environment variables in Netlify dashboard (Site settings > Build & deploy > Environment):
 
-- `NEXT_PUBLIC_FIREBASE_API_KEY`
-- `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN`
-- `NEXT_PUBLIC_FIREBASE_PROJECT_ID`
-- `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET`
-- `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID`
-- `NEXT_PUBLIC_FIREBASE_APP_ID`
-- `NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID`
-- `STRIPE_SECRET_KEY` (if using Stripe)
-- `NEXT_PUBLIC_STRIPE_PUBLIC_KEY` (if using Stripe)
-- `PAYPAL_CLIENT_ID` (if using PayPal)
-- `PAYPAL_CLIENT_SECRET` (if using PayPal)
-- `FLUTTERWAVE_SECRET_KEY` (if using Flutterwave)
-- `NEXT_PUBLIC_APP_URL` (set to your Netlify URL)
+**Firebase Configuration (Required):**
+- `NEXT_PUBLIC_FIREBASE_API_KEY` - Firebase API key (regenerate this in Google Cloud Console)
+- `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN` - Firebase Auth domain
+- `NEXT_PUBLIC_FIREBASE_PROJECT_ID` - Firebase project ID
+- `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET` - Firebase storage bucket
+- `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID` - Firebase messaging sender ID
+- `NEXT_PUBLIC_FIREBASE_APP_ID` - Firebase app ID
+- `NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID` - Firebase measurement ID
+
+**Stripe Configuration (For Payments):**
+- `STRIPE_SECRET_KEY` - Stripe secret key (starts with `sk_`)
+- `NEXT_PUBLIC_STRIPE_PUBLIC_KEY` - Stripe publishable key (starts with `pk_`)
+- `STRIPE_WEBHOOK_SECRET` - Stripe webhook signing secret
+- `STRIPE_PRICE_ID_PRO` - Stripe Price ID for Pro tier
+- `STRIPE_PRICE_ID_BUSINESS` - Stripe Price ID for Business tier
+
+**PayPal Configuration (For Payments):**
+- `PAYPAL_CLIENT_ID` - PayPal client ID
+- `PAYPAL_CLIENT_SECRET` - PayPal client secret
+- `PAYPAL_PLAN_ID_PRO` - PayPal plan ID for Pro tier
+- `PAYPAL_PLAN_ID_BUSINESS` - PayPal plan ID for Business tier
+
+**Flutterwave Configuration (For Payments):**
+- `FLUTTERWAVE_PUBLIC_KEY` - Flutterwave public key
+- `FLUTTERWAVE_SECRET_KEY` - Flutterwave secret key
+- `FLUTTERWAVE_ENCRYPTION_KEY` - Flutterwave encryption key
+
+**Application Configuration:**
+- `NEXT_PUBLIC_APP_URL` - Your Netlify URL (e.g., https://your-app-name.netlify.app)
+
+### Payment Gateway Setup
+
+For the paid features to work, you need to set up the payment gateways:
+
+**Stripe Setup:**
+1. Create a Stripe account at [stripe.com](https://stripe.com)
+2. Set up your products and price plans in the Stripe dashboard
+3. Get your API keys from the Stripe dashboard
+4. Set up a webhook endpoint that points to your Netlify site: `https://your-netlify-site.netlify.app/.netlify/functions/stripe-webhook`
+5. Add the webhook signing secret to your environment variables
+
+**PayPal Setup:**
+1. Create a PayPal Developer account at [developer.paypal.com](https://developer.paypal.com)
+2. Create a PayPal application to get your client ID and secret
+3. Set up subscription plans in the PayPal dashboard
+4. Add the plan IDs to your environment variables
+
+**Flutterwave Setup (for African regions):**
+1. Create a Flutterwave account at [flutterwave.com](https://flutterwave.com)
+2. Get your API keys from the Flutterwave dashboard
+3. Add the keys to your environment variables
 
 ### Step 5: Deploy
 
