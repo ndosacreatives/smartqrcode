@@ -1,18 +1,36 @@
 import Stripe from 'stripe';
+import { getCredential } from '@/lib/credentials';
 
-// Initialize Stripe - Get API keys from environment variables
-const stripeSecretKey = process.env.STRIPE_SECRET_KEY || '';
-const stripePublicKey = process.env.NEXT_PUBLIC_STRIPE_PUBLIC_KEY || '';
+// Create a singleton instance for direct import
+let stripeInstance: Stripe | null = null;
 
-// Make sure the secret key is available
-if (!stripeSecretKey) {
-  console.warn('Missing STRIPE_SECRET_KEY environment variable');
+// Initialize Stripe with credential from either environment or encrypted storage
+export async function getStripeClient() {
+  const stripeSecretKey = await getCredential('STRIPE_SECRET_KEY');
+  
+  if (!stripeSecretKey) {
+    console.warn('Missing STRIPE_SECRET_KEY');
+    throw new Error('Stripe API key not configured');
+  }
+  
+  const instance = new Stripe(stripeSecretKey, {
+    apiVersion: '2023-10-16' as Stripe.LatestApiVersion,
+  });
+  
+  // Update the singleton instance
+  stripeInstance = instance;
+  
+  return instance;
 }
 
-// Initialize the Stripe client
-export const stripe = new Stripe(stripeSecretKey, {
-  apiVersion: '2023-10-16', // Use the latest API version
-});
+// Export the stripe instance directly for backward compatibility
+// Note: This will be null until getStripeClient() is called once
+export const stripe = stripeInstance;
+
+// Get public key for client-side use
+export async function getStripePublicKey() {
+  return await getCredential('NEXT_PUBLIC_STRIPE_PUBLIC_KEY');
+}
 
 // Create a checkout session for subscription
 export async function createSubscriptionCheckoutSession({
@@ -29,6 +47,8 @@ export async function createSubscriptionCheckoutSession({
   metadata?: Record<string, string>;
 }) {
   try {
+    const stripe = await getStripeClient();
+    
     const params: Stripe.Checkout.SessionCreateParams = {
       mode: 'subscription',
       payment_method_types: ['card'],
@@ -69,6 +89,8 @@ export async function createStripeCustomer({
   metadata?: Record<string, string>;
 }) {
   try {
+    const stripe = await getStripeClient();
+    
     const customer = await stripe.customers.create({
       email,
       name,
@@ -85,6 +107,8 @@ export async function createStripeCustomer({
 // Cancel a subscription in Stripe
 export async function cancelStripeSubscription(subscriptionId: string) {
   try {
+    const stripe = await getStripeClient();
+    
     const subscription = await stripe.subscriptions.update(subscriptionId, {
       cancel_at_period_end: true,
     });
@@ -97,12 +121,18 @@ export async function cancelStripeSubscription(subscriptionId: string) {
 }
 
 // Helper function to verify webhook signature
-export function verifyStripeWebhookSignature(
+export async function verifyStripeWebhookSignature(
   payload: string | Buffer,
-  signature: string,
-  webhookSecret: string
+  signature: string
 ) {
   try {
+    const stripe = await getStripeClient();
+    const webhookSecret = await getCredential('STRIPE_WEBHOOK_SECRET');
+    
+    if (!webhookSecret) {
+      throw new Error('Stripe webhook secret not configured');
+    }
+    
     return stripe.webhooks.constructEvent(
       payload,
       signature,
@@ -112,9 +142,4 @@ export function verifyStripeWebhookSignature(
     console.error('Error verifying webhook signature:', error);
     throw new Error('Failed to verify webhook signature');
   }
-}
-
-// Get public key for client-side use
-export function getStripePublicKey() {
-  return stripePublicKey;
 } 

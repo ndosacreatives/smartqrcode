@@ -79,6 +79,10 @@ if (!admin.apps.length) {
 const adminDb = admin.firestore();
 const adminAuth = admin.auth();
 
+// Aliases for backward compatibility
+const db = adminDb;
+const auth = adminAuth;
+
 // Export validation function to check if connection is working
 export async function validateFirebaseAdminConnection() {
   try {
@@ -100,4 +104,5 @@ export async function validateFirebaseAdminConnection() {
   }
 }
 
-export { adminDb, adminAuth }; 
+// Export both the main variables and aliases for backward compatibility
+export { adminDb, adminAuth, db, auth }; 

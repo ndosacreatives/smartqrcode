@@ -87,11 +87,13 @@ git push origin main
 
 ### Step 3: Configure Build Settings
 
-In the Netlify deployment settings, configure:
+The repository includes a `netlify.toml` file that configures:
 
 - **Build command**: `npm run build`
-- **Publish directory**: `.next`
-- **Node version**: 18 (or your project's required version)
+- **Publish directory**: `out`
+- **Node version**: 18
+
+You don't need to change these settings unless you have specific requirements.
 
 ### Step 4: Set Environment Variables
 
@@ -103,19 +105,32 @@ Set the following environment variables in Netlify dashboard (Site settings > Bu
 - `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET`
 - `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID`
 - `NEXT_PUBLIC_FIREBASE_APP_ID`
+- `NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID`
+- `STRIPE_SECRET_KEY` (if using Stripe)
+- `NEXT_PUBLIC_STRIPE_PUBLIC_KEY` (if using Stripe)
+- `PAYPAL_CLIENT_ID` (if using PayPal)
+- `PAYPAL_CLIENT_SECRET` (if using PayPal)
+- `FLUTTERWAVE_SECRET_KEY` (if using Flutterwave)
+- `NEXT_PUBLIC_APP_URL` (set to your Netlify URL)
 
 ### Step 5: Deploy
 
 Click "Deploy site" and Netlify will build and deploy your application.
 
-### Troubleshooting
+### Local Deployment Preparation
 
-If you encounter issues during deployment:
+You can use the included script to prepare your project for deployment:
 
-1. Check Netlify build logs for errors
-2. Ensure all dependencies are correctly installed
-3. Verify environment variables are set correctly
-4. Check Firebase security rules if encountering permission issues
+```bash
+# On Windows
+netlify-deploy.bat
+
+# On Linux/Mac
+# Run the equivalent commands:
+# rm -rf .next out
+# npm ci
+# npm run build
+```
 
 ## Development
 
