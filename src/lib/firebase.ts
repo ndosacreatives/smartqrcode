@@ -10,20 +10,7 @@ import {
 import { getStorage } from 'firebase/storage';
 import { getAnalytics, isSupported } from "firebase/analytics";
 
-// --- TEMPORARY DEBUGGING: Hardcode config ---
-const firebaseConfig = {
-  apiKey: "AIzaSyAI8KpMU-NK2VG2yGC6BAQ_v0imrbHh79I", // Use the actual key provided
-  authDomain: "smartqrdatabase-b5076.firebaseapp.com",
-  projectId: "smartqrdatabase-b5076",
-  storageBucket: "smartqrdatabase-b5076.appspot.com", // Corrected bucket name
-  messagingSenderId: "340286816273",
-  appId: "1:340286816273:web:445441f6b1dceb23c2b1b0",
-  measurementId: "G-SQCWHRR10N"
-};
-// --- END TEMPORARY DEBUGGING ---
-
-// --- Comment out reading from process.env ---
-/*
+// Firebase configuration using environment variables
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
   authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
@@ -33,8 +20,6 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
   measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID
 };
-*/
-// --- End comment out ---
 
 // Initialize Firebase App (prevent re-initialization)
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
