@@ -10,22 +10,23 @@ import { app } from "./firebase";
 // Initialize Firebase Authentication
 export const auth = getAuth(app);
 
+// Create Google Provider for direct export 
+export const googleProvider = new GoogleAuthProvider();
+googleProvider.addScope('https://www.googleapis.com/auth/userinfo.profile');
+googleProvider.addScope('https://www.googleapis.com/auth/userinfo.email');
+googleProvider.setCustomParameters({
+  prompt: 'select_account' // Force account selection even when one account is available
+});
+
 // Define available auth providers
 export const providers = {
-  google: new GoogleAuthProvider(),
+  google: googleProvider, // Use the googleProvider constant here
   github: new GithubAuthProvider(),
   facebook: new FacebookAuthProvider(),
   twitter: new TwitterAuthProvider()
 };
 
 // Configure providers with additional scopes/parameters
-// Google provider configuration
-providers.google.addScope('https://www.googleapis.com/auth/userinfo.profile');
-providers.google.addScope('https://www.googleapis.com/auth/userinfo.email');
-providers.google.setCustomParameters({
-  prompt: 'select_account' // Force account selection even when one account is available
-});
-
 // GitHub provider configuration
 providers.github.addScope('read:user');
 providers.github.addScope('user:email');
@@ -56,7 +57,7 @@ export const AVAILABLE_PROVIDERS = {
   google: {
     name: 'Google',
     enabled: true, // Set to true since you've enabled this in Firebase console
-    provider: providers.google
+    provider: googleProvider
   },
   // Explicitly set these to false since they're not configured
   twitter: {

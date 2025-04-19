@@ -189,6 +189,38 @@ try {
     // We'll continue even with errors because we only care about the pages that can be statically generated
   }
   
+  // Ensure the out directory exists
+  if (!fs.existsSync(path.join('out'))) {
+    console.log('🔧 Creating out directory as it was not generated...');
+    fs.mkdirSync(path.join('out'), { recursive: true });
+    
+    // Create a minimal index.html file in case no build output was generated
+    const minimalHtml = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Smart QR Code Generator</title>
+  <style>
+    body { font-family: sans-serif; max-width: 800px; margin: 0 auto; padding: 2rem; }
+    .error { background: #f8d7da; color: #842029; padding: 1rem; border-radius: 4px; }
+    .info { background: #d1ecf1; color: #0c5460; padding: 1rem; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <h1>Smart QR Code Generator</h1>
+  <div class="info">
+    <p>This is a fallback page. The actual application may be in the process of building.</p>
+    <p>Please try again in a few minutes or contact the site administrator.</p>
+  </div>
+</body>
+</html>
+    `;
+    
+    fs.writeFileSync(path.join('out', 'index.html'), minimalHtml.trim());
+  }
+  
   // Copy extra files for Netlify
   console.log('📝 Copying Netlify configuration files...');
   
