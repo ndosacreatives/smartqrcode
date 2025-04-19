@@ -163,15 +163,6 @@ try {
   createRedirectPage(pricingCheckoutPlaceholder);
   placeholderFilesCreated.push(pricingCheckoutPlaceholder);
   
-  // Also create specific redirect for shared page with dynamic [id] parameter
-  const sharedDir = path.join(appDir, 'shared', '[id]');
-  if (!fs.existsSync(sharedDir)) {
-    fs.mkdirSync(sharedDir, { recursive: true });
-  }
-  const sharedPlaceholder = path.join(sharedDir, 'page.tsx');
-  createRedirectPage(sharedPlaceholder);
-  placeholderFilesCreated.push(sharedPlaceholder);
-  
   // Set environment variables for static build
   process.env.NEXT_SKIP_API_ROUTES = 'true';
   process.env.NEXT_SKIP_MIDDLEWARE_COMPILATION = 'true';
