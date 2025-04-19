@@ -66,8 +66,9 @@ function findAndMoveProblemPages(dir, tempBackupDir, pagesToExclude) {
 // Restore moved directories
 function restoreMovedDirs(movedPaths) {
   for (const { original, backup } of movedPaths) {
-    // Remove the placeholder empty directory
+    // Remove the placeholder empty directory/file created earlier
     if (fs.existsSync(original)) {
+      console.log(`🧹 Removing placeholder: ${original}`);
       rimraf.sync(original);
     }
     
@@ -105,12 +106,8 @@ function createRedirectPage(pagePath) {
 // Main execution
 console.log('🧹 Cleaning previous build directories...');
 try {
-  if (fs.existsSync('.next')) {
-    rimraf.sync('.next');
-  }
-  if (fs.existsSync('out')) {
-    rimraf.sync('out');
-  }
+  // Use npx rimraf for more reliable cross-platform deletion
+  execSync('npx rimraf .next out', { stdio: 'inherit' });
 } catch (err) {
   console.error('Error cleaning directories:', err);
 }
@@ -152,21 +149,28 @@ try {
   
   // Create placeholder files for admin, account, etc. to avoid build errors
   console.log('📝 Creating placeholder files for excluded sections...');
+  const placeholderFilesCreated: string[] = []; // Keep track of placeholders
   pagesToExclude.forEach(page => {
     if (page !== '/api') { // Skip API routes
-      createRedirectPage(path.join(appDir, page.substring(1), 'page.tsx'));
+      const placeholderPath = path.join(appDir, page.substring(1), 'page.tsx');
+      createRedirectPage(placeholderPath);
+      placeholderFilesCreated.push(placeholderPath);
     }
   });
   
   // Also create specific redirect for pricing page that holds checkout UI
-  createRedirectPage(path.join(appDir, 'pricing', 'checkout', 'page.tsx'));
+  const pricingCheckoutPlaceholder = path.join(appDir, 'pricing', 'checkout', 'page.tsx');
+  createRedirectPage(pricingCheckoutPlaceholder);
+  placeholderFilesCreated.push(pricingCheckoutPlaceholder);
   
   // Also create specific redirect for shared page with dynamic [id] parameter
   const sharedDir = path.join(appDir, 'shared', '[id]');
   if (!fs.existsSync(sharedDir)) {
     fs.mkdirSync(sharedDir, { recursive: true });
   }
-  createRedirectPage(path.join(sharedDir, 'page.tsx'));
+  const sharedPlaceholder = path.join(sharedDir, 'page.tsx');
+  createRedirectPage(sharedPlaceholder);
+  placeholderFilesCreated.push(sharedPlaceholder);
   
   // Set environment variables for static build
   process.env.NEXT_SKIP_API_ROUTES = 'true';
@@ -315,6 +319,24 @@ try {
   if (fs.existsSync(tempDir)) {
     rimraf.sync(tempDir);
   }
+  
+  // Explicitly remove placeholder files AFTER restoring, just in case
+  console.log('🧹 Final cleanup of placeholder files...');
+  placeholderFilesCreated.forEach(filePath => {
+    if (fs.existsSync(filePath)) {
+      try {
+        const parentDir = path.dirname(filePath);
+        fs.unlinkSync(filePath); // Remove the file
+        // Optionally remove the parent directory if it's now empty and was created for the placeholder
+        // Be cautious with this part
+        // if (fs.readdirSync(parentDir).length === 0) {
+        //   fs.rmdirSync(parentDir);
+        // }
+      } catch (cleanupError) {
+        console.warn(`⚠️ Error removing placeholder file ${filePath}:`, cleanupError);
+      }
+    }
+  });
 }
 
 // Create a .env file with minimal required variables if not exists
