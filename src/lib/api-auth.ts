@@ -1,82 +1,131 @@
 import { NextRequest } from 'next/server';
-import { adminAuth } from './firebase-admin';
-import { DecodedIdToken } from 'firebase-admin/auth';
+import { adminAuth } from '@/lib/firebase-admin';
+import type { DecodedIdToken } from 'firebase-admin/auth';
 
 /**
- * Get the authenticated user from a request
- * @param request The NextRequest object
- * @returns The decoded user token or null if authentication failed
+ * Get the authenticated user from the request
+ * @param request The Next.js request object
+ * @returns The decoded user token or null if not authenticated
  */
 export async function getUserFromRequest(request: NextRequest): Promise<DecodedIdToken | null> {
   try {
-    // First try to get the auth token from the Authorization header
-    let token = getTokenFromHeader(request);
-    
-    // If no token in header, try to get it from cookies
+    // Check for token in Authorization header
+    const authHeader = request.headers.get('authorization');
+    let token = authHeader ? getTokenFromHeader(authHeader) : null;
+
+    // If no token in header, check cookies
     if (!token) {
       token = getTokenFromCookie(request);
     }
-    
-    // If we still don't have a token, the user is not authenticated
+
     if (!token) {
+      console.log('API Auth: No authentication token found in request');
       return null;
     }
-    
-    // Verify the token
-    const decodedToken = await adminAuth.verifyIdToken(token);
-    return decodedToken;
+
+    try {
+      // Verify the token
+      console.log('API Auth: Verifying token...');
+      const decodedToken = await adminAuth.verifyIdToken(token);
+      console.log(`API Auth: Token verified for user ${decodedToken.uid}`);
+      return decodedToken;
+    } catch (error) {
+      console.error('API Auth: Token verification failed:', error);
+      return null;
+    }
   } catch (error) {
-    console.error('Error authenticating user:', error);
+    console.error('API Auth: Error in getUserFromRequest:', error);
     return null;
   }
 }
 
 /**
- * Get the auth token from the Authorization header
+ * Extract token from Authorization header
+ * @param authHeader The Authorization header value
+ * @returns The token or null if not found/valid
  */
-function getTokenFromHeader(request: NextRequest): string | null {
-  const authHeader = request.headers.get('authorization');
+export function getTokenFromHeader(authHeader: string): string | null {
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return null;
   }
-  
-  return authHeader.split('Bearer ')[1];
+
+  const token = authHeader.split('Bearer ')[1];
+  if (!token) {
+    console.log('API Auth: Bearer token is empty');
+    return null;
+  }
+
+  return token;
 }
 
 /**
- * Get the auth token from cookies
+ * Extract token from cookies
+ * @param request The Next.js request object
+ * @returns The token or null if not found
  */
-function getTokenFromCookie(request: NextRequest): string | null {
-  // Look for the auth token in cookies
-  const authCookie = request.cookies.get('auth_token');
-  if (!authCookie) {
+export function getTokenFromCookie(request: NextRequest): string | null {
+  try {
+    const sessionCookie = request.cookies.get('session');
+    const authCookie = request.cookies.get('firebase-auth-token');
+    
+    if (sessionCookie?.value) {
+      return sessionCookie.value;
+    }
+    
+    if (authCookie?.value) {
+      return authCookie.value;
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('API Auth: Error extracting token from cookies:', error);
     return null;
   }
-  
-  return authCookie.value;
 }
 
 /**
  * Check if a user has a specific role
+ * @param user The decoded user token
+ * @param role The role to check for
+ * @returns True if the user has the role, false otherwise
  */
 export async function hasRole(user: DecodedIdToken, role: string): Promise<boolean> {
-  if (!user || !user.uid) {
+  if (!user) {
+    console.log('API Auth: No user provided to hasRole check');
     return false;
   }
-  
+
   try {
-    // Get the user's custom claims
-    const userRecord = await adminAuth.getUser(user.uid);
-    
-    // Check if the user has the role in custom claims
-    if (userRecord.customClaims && userRecord.customClaims.role === role) {
+    // Check custom claims for the role
+    const customClaims = user.customClaims || {};
+    if (customClaims.admin === true && role === 'admin') {
+      console.log(`API Auth: User ${user.uid} has admin role`);
       return true;
     }
     
-    // If no custom claims or role doesn't match, return false
+    if (customClaims.roles && Array.isArray(customClaims.roles) && customClaims.roles.includes(role)) {
+      console.log(`API Auth: User ${user.uid} has role ${role}`);
+      return true;
+    }
+
+    // If user is not verified to have the role, fetch fresh user data
+    const userRecord = await adminAuth.getUser(user.uid);
+    const userClaims = userRecord.customClaims || {};
+    
+    if (userClaims.admin === true && role === 'admin') {
+      console.log(`API Auth: User ${user.uid} verified as admin from fresh data`);
+      return true;
+    }
+    
+    if (userClaims.roles && Array.isArray(userClaims.roles) && userClaims.roles.includes(role)) {
+      console.log(`API Auth: User ${user.uid} verified with role ${role} from fresh data`);
+      return true;
+    }
+    
+    console.log(`API Auth: User ${user.uid} does not have role ${role}`);
     return false;
   } catch (error) {
-    console.error('Error checking user role:', error);
+    console.error(`API Auth: Error checking role ${role} for user:`, error);
     return false;
   }
 } 

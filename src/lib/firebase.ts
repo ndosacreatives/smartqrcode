@@ -1,7 +1,12 @@
 // Import the functions you need from the SDKs you need
 import { initializeApp, getApps, getApp } from "firebase/app";
-import { getAuth } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
+import { getAuth, RecaptchaVerifier } from "firebase/auth";
+import { 
+  getFirestore, 
+  enableIndexedDbPersistence, 
+  CACHE_SIZE_UNLIMITED,
+  enableMultiTabIndexedDbPersistence
+} from "firebase/firestore";
 import { getStorage } from 'firebase/storage';
 import { getAnalytics, isSupported } from "firebase/analytics";
 
@@ -49,8 +54,23 @@ if (typeof window !== 'undefined') {
   console.log('Firebase Auth configured for global phone authentication');
 }
 
-// Initialize Firestore and get a reference to the service
+// Initialize Firestore with performance settings
 const db = getFirestore(app);
+
+// Enable offline persistence only in browser environment
+if (typeof window !== 'undefined') {
+  // Use multi-tab persistence to fix the exclusive access error
+  enableMultiTabIndexedDbPersistence(db).catch((err) => {
+    if (err.code === 'failed-precondition') {
+      // Multiple tabs open, persistence can only be enabled in one tab
+      console.warn('Firebase persistence failed: Multiple tabs open');
+      console.warn('Falling back to memory-only persistence');
+    } else if (err.code === 'unimplemented') {
+      // Current browser doesn't support persistence
+      console.warn('Firebase persistence not supported in this browser');
+    }
+  });
+}
 
 const storage = getStorage(app);
 
@@ -62,6 +82,20 @@ if (typeof window !== 'undefined') {
       analytics = getAnalytics(app);
     } else {
         console.log("Firebase Analytics is not supported in this environment.");
+    }
+  });
+}
+
+// Create a function to get a RecaptchaVerifier instance when needed
+// This prevents trying to access DOM elements at module initialization
+export function getRecaptchaVerifier(elementId: string) {
+  return new RecaptchaVerifier(auth, elementId, {
+    size: 'invisible',
+    callback: () => {
+      console.log('Captcha resolved');
+    },
+    'expired-callback': () => {
+      console.log('Captcha expired');
     }
   });
 }

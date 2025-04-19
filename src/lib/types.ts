@@ -138,4 +138,34 @@ export interface UploadedFile {
   qrCodeId?: string;
   isPublic: boolean;
   expiresAt?: any;
+}
+
+// Payment provider credential types
+export interface PaymentCredentials {
+  provider: 'stripe' | 'paypal' | 'flutterwave';
+  isActive: boolean;
+  encryptedData: string; // This will store the encrypted credentials JSON
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface StripeCredentials {
+  secretKey: string;
+  publicKey: string;
+  webhookSecret: string;
+  pricePro: string;
+  priceBusiness: string;
+}
+
+export interface PayPalCredentials {
+  clientId: string;
+  clientSecret: string;
+  planIdPro: string;
+  planIdBusiness: string;
+}
+
+export interface FlutterwaveCredentials {
+  publicKey: string;
+  secretKey: string;
+  encryptionKey: string;
 } 
