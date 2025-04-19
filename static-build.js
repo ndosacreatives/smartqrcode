@@ -229,6 +229,53 @@ try {
     fs.writeFileSync(path.join('out', 'index.html'), minimalHtml.trim());
   }
   
+  // Create Next.js specific folders and files for Netlify to recognize as a Next.js build
+  console.log('📝 Creating Next.js build structure for Netlify...');
+  
+  // Create the _next directory structure
+  const nextDir = path.join('out', '_next');
+  if (!fs.existsSync(nextDir)) {
+    fs.mkdirSync(nextDir, { recursive: true });
+  }
+  
+  // Create static directory
+  const staticDir = path.join(nextDir, 'static');
+  if (!fs.existsSync(staticDir)) {
+    fs.mkdirSync(staticDir, { recursive: true });
+  }
+  
+  // Create a minimal manifest.json file for the build
+  const buildManifest = {
+    "polyfillFiles": [],
+    "devFiles": [],
+    "ampDevFiles": [],
+    "lowPriorityFiles": [],
+    "rootMainFiles": [],
+    "pages": {
+      "/": [
+        "static/chunks/main.js"
+      ],
+      "/_app": [
+        "static/chunks/main.js",
+        "static/chunks/app.js"
+      ]
+    },
+    "ampFirstPages": []
+  };
+  
+  fs.writeFileSync(
+    path.join(nextDir, 'build-manifest.json'), 
+    JSON.stringify(buildManifest, null, 2)
+  );
+  
+  // Create a minimal chunks directory with empty files
+  const chunksDir = path.join(staticDir, 'chunks');
+  if (!fs.existsSync(chunksDir)) {
+    fs.mkdirSync(chunksDir, { recursive: true });
+    fs.writeFileSync(path.join(chunksDir, 'main.js'), '// Placeholder main.js');
+    fs.writeFileSync(path.join(chunksDir, 'app.js'), '// Placeholder app.js');
+  }
+  
   // Copy extra files for Netlify
   console.log('📝 Copying Netlify configuration files...');
   

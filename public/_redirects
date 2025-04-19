@@ -1,3 +1,5 @@
+# Don't delete - This file is needed for Netlify SPA routing
+
 # Client-side routing for Next.js
 /account/*    /index.html   200
 /admin/*      /index.html   200
@@ -12,6 +14,9 @@
 /register     /index.html   200
 /success      /index.html   200
 /cancel       /index.html   200
+/shared/*     /index.html   200
+/qrcode/*     /index.html   200
+/barcode/*    /index.html   200
 
 # Fallback for all other routes
 /*            /index.html   200 
