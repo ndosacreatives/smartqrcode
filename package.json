@@ -6,7 +6,7 @@
     "dev": "next dev --turbopack",
     "build": "next build",
     "static-build": "node static-build.js",
-    "netlify-build": "echo 'Disabling Next.js plugin' && touch netlify.ignore && cross-env NETLIFY_NEXT_PLUGIN_SKIP=true NEXT_DISABLE_ESLINT=1 NEXT_DISABLE_TYPE_CHECKS=1 npm run static-build",
+    "netlify-build": "cross-env NETLIFY_NEXT_PLUGIN_SKIP=true NEXT_DISABLE_ESLINT=1 NEXT_DISABLE_TYPE_CHECKS=1 npm run static-build",
     "start": "next start",
     "lint": "next lint",
     "test:credentials": "ts-node --transpile-only --project tsconfig.scripts.json -r tsconfig-paths/register scripts/test-credentials.ts",

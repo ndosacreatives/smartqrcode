@@ -289,26 +289,6 @@ try {
     );
   }
   
-  // Copy netlify.ignore file to disable the Next.js plugin
-  if (fs.existsSync(path.join('public', 'netlify.ignore')) && 
-      fs.existsSync(path.join('out')) &&
-      !fs.existsSync(path.join('out', 'netlify.ignore'))) {
-    fs.copyFileSync(
-      path.join('public', 'netlify.ignore'), 
-      path.join('out', 'netlify.ignore')
-    );
-  }
-  
-  // Copy plugins.json file to disable the Next.js plugin
-  if (fs.existsSync(path.join('public', 'plugins.json')) && 
-      fs.existsSync(path.join('out')) &&
-      !fs.existsSync(path.join('out', 'plugins.json'))) {
-    fs.copyFileSync(
-      path.join('public', 'plugins.json'), 
-      path.join('out', 'plugins.json')
-    );
-  }
-  
   // Copy build-success.html
   if (fs.existsSync(path.join('public', 'build-success.html')) && 
       fs.existsSync(path.join('out')) &&
