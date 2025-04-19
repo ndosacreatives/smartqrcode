@@ -1,0 +1,50 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Check if the user is an admin
+    function isAdmin() {
+      return isAuthenticated() && 
+        firestore.exists(/databases/(default)/documents/users/$(request.auth.uid)) &&
+        firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    // Default deny all
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+    
+    // User profile images
+    match /users/{userId}/profile/{fileName} {
+      allow read: if true;  // Public read for profile images
+      allow write: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
+    }
+    
+    // QR code related uploads
+    match /qrcodes/{userId}/{codeId}/{fileName} {
+      allow read: if 
+        // Public QR codes
+        firestore.get(/databases/(default)/documents/qrcodes/$(codeId)).data.isPublic == true ||
+        // Or user is authenticated and owns the QR code or is admin
+        (isAuthenticated() && (request.auth.uid == userId || isAdmin()));
+      
+      allow write: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
+    }
+    
+    // Temporary uploads (for processing before storing)
+    match /tmp/{userId}/{fileName} {
+      allow read, write: if isAuthenticated() && request.auth.uid == userId;
+      // Auto-expire these files with a lifecycle rule in Firebase console
+    }
+    
+    // Public assets
+    match /public/{fileName} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+  }
+} 
