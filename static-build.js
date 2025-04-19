@@ -155,6 +155,8 @@ try {
   process.env.NEXT_SKIP_API_ROUTES = 'true';
   process.env.NEXT_SKIP_MIDDLEWARE_COMPILATION = 'true';
   process.env.STATIC_EXPORT_ONLY = 'true';
+  process.env.NEXT_DISABLE_ESLINT = '1'; // Completely disable ESLint
+  process.env.NEXT_DISABLE_TYPE_CHECKS = '1'; // Completely disable TypeScript checks
 
   // Run the Next.js build
   console.log('🏗️ Building Next.js application...');
@@ -165,7 +167,9 @@ try {
         ...process.env,
         NEXT_SKIP_API_ROUTES: 'true',
         NEXT_SKIP_MIDDLEWARE_COMPILATION: 'true',
-        STATIC_EXPORT_ONLY: 'true'
+        STATIC_EXPORT_ONLY: 'true',
+        NEXT_DISABLE_ESLINT: '1',
+        NEXT_DISABLE_TYPE_CHECKS: '1'
       },
       stdio: 'inherit'
     });

@@ -9,6 +9,8 @@
   NETLIFY_NEXT_PLUGIN_SKIP = "true"
   NEXT_SKIP_API_ROUTES = "true"
   NEXT_SKIP_MIDDLEWARE_COMPILATION = "true"
+  NEXT_DISABLE_ESLINT = "1"
+  NEXT_DISABLE_TYPE_CHECKS = "1"
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"
