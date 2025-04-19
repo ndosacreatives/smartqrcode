@@ -136,7 +136,8 @@ const pagesToExclude = [
   '/success',       // Payment success pages
   '/cancel',        // Payment cancel pages
   '/profile',       // User profile pages
-  '/payment'        // Payment pages
+  '/payment',       // Payment pages
+  '/shared'         // Shared link pages
 ];
 
 // Store references to moved directories
@@ -159,6 +160,13 @@ try {
   
   // Also create specific redirect for pricing page that holds checkout UI
   createRedirectPage(path.join(appDir, 'pricing', 'checkout', 'page.tsx'));
+  
+  // Also create specific redirect for shared page with dynamic [id] parameter
+  const sharedDir = path.join(appDir, 'shared', '[id]');
+  if (!fs.existsSync(sharedDir)) {
+    fs.mkdirSync(sharedDir, { recursive: true });
+  }
+  createRedirectPage(path.join(sharedDir, 'page.tsx'));
   
   // Set environment variables for static build
   process.env.NEXT_SKIP_API_ROUTES = 'true';
@@ -260,4 +268,20 @@ try {
   if (fs.existsSync(tempDir)) {
     rimraf.sync(tempDir);
   }
+}
+
+// Create a .env file with minimal required variables if not exists
+// This helps prevent Firebase API key errors during build
+if (!fs.existsSync('.env.local')) {
+  console.log('📝 Creating temporary .env.local for build...');
+  const envContent = `
+NEXT_PUBLIC_FIREBASE_API_KEY=temp-api-key-for-build
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=example.firebaseapp.com
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=example-project
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=example.appspot.com
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=123456789
+NEXT_PUBLIC_FIREBASE_APP_ID=1:123456789:web:abcdef
+NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID=G-EXAMPLE
+`;
+  fs.writeFileSync('.env.local', envContent.trim());
 } 
