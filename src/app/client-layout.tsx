@@ -3,46 +3,52 @@
 import { useEffect, useState } from 'react';
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import { SubscriptionProvider } from "@/context/SubscriptionContext";
+import { SubscriptionProvider } from "@/context/SubscriptionProvider";
 import { FirebaseAuthProvider } from '@/context/FirebaseAuthContext'
+import { usePathname } from 'next/navigation';
 
 export default function ClientLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
-  // Use this state to prevent hydration mismatch
   const [isMounted, setIsMounted] = useState(false);
+  const pathname = usePathname();
+  const isAdminPage = pathname?.startsWith('/admin');
 
   useEffect(() => {
     setIsMounted(true);
   }, []);
 
-  // Return null or a simple loading state during SSR to prevent hydration mismatch
-  if (!isMounted) {
+  // For admin pages, just wrap with providers but don't add any layout elements
+  if (isAdminPage) {
     return (
-      <div className="flex flex-col min-h-screen">
-        <div className="h-16 bg-white shadow-sm"></div>
-        <main className="flex-grow container mx-auto px-4 py-8">
-          {/* Render children during SSR for SEO, but don't wrap with client components */}
+      <FirebaseAuthProvider>
+        <SubscriptionProvider>
           {children}
-        </main>
-        <div className="h-12 bg-gray-100"></div>
-      </div>
+        </SubscriptionProvider>
+      </FirebaseAuthProvider>
     );
   }
 
+  // For regular pages, include header and footer
   return (
-    <>
-      <FirebaseAuthProvider>
-        <SubscriptionProvider>
-          <Header />
-          <main className="flex-grow container mx-auto px-4 py-8">
-            {children}
-          </main>
-          <Footer />
-        </SubscriptionProvider>
-      </FirebaseAuthProvider>
-    </>
+    <FirebaseAuthProvider>
+      <SubscriptionProvider>
+        {isMounted ? (
+          <>
+            <Header />
+            <main className="flex-grow container mx-auto px-4 py-8">
+              {children}
+            </main>
+            <Footer />
+          </>
+        ) : (
+          <div className="flex-grow container mx-auto px-4 py-8">
+            <div className="h-64 w-full bg-gray-200 rounded animate-pulse"></div>
+          </div>
+        )}
+      </SubscriptionProvider>
+    </FirebaseAuthProvider>
   )
 } 

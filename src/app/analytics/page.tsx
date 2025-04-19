@@ -1,425 +1,393 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import React, { useEffect, useState, useCallback, Suspense } from "react";
+import { Bar } from "react-chartjs-2";
+import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend } from 'chart.js';
 import { useSubscription } from "@/context/SubscriptionContext";
-import Link from "next/link";
+import { AnalyticsData, getAnalyticsData } from "@/lib/analyticsService";
+import { useAuth } from "@/context/FirebaseAuthContext";
+// Removed the problematic import
 
-const mockQrCodes = [
-  { id: 1, name: "Website QR", scans: 124, lastScanned: "2023-12-18" },
-  { id: 2, name: "Product Barcode", scans: 87, lastScanned: "2023-12-19" },
-  { id: 3, name: "Contact Info", scans: 36, lastScanned: "2023-12-15" },
-  { id: 4, name: "Wifi Access", scans: 14, lastScanned: "2023-12-17" },
-];
+ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
+
+interface DateRange {
+  startDate: Date | null;
+  endDate: Date | null;
+}
+
+interface ChartData {
+  labels: string[];
+  datasets: {
+    label: string;
+    data: number[];
+    backgroundColor: string;
+  }[];
+}
+
+// Simple inline DateRangePicker component
+function SimpleDateRangePicker({ initialRange, onRangeChange }: { 
+  initialRange: DateRange; 
+  onRangeChange: (range: DateRange) => void;
+}) {
+  const formatDateForInput = (date: Date | null) => {
+    if (!date) return '';
+    return date.toISOString().split('T')[0];
+  };
+
+  return (
+    <div className="flex space-x-4 items-center">
+      <label htmlFor="startDate" className="text-gray-700">Start Date:</label>
+      <input 
+        type="date" 
+        id="startDate"
+        value={formatDateForInput(initialRange.startDate)}
+        onChange={(e) => onRangeChange({ 
+          ...initialRange, 
+          startDate: e.target.value ? new Date(e.target.value) : null 
+        })}
+        className="p-2 border rounded"
+      />
+      <label htmlFor="endDate" className="text-gray-700">End Date:</label>
+      <input 
+        type="date" 
+        id="endDate"
+        value={formatDateForInput(initialRange.endDate)}
+        onChange={(e) => onRangeChange({ 
+          ...initialRange, 
+          endDate: e.target.value ? new Date(e.target.value) : null 
+        })}
+        className="p-2 border rounded"
+      />
+    </div>
+  );
+}
 
 export default function AnalyticsPage() {
-  const router = useRouter();
-  const { hasFeature, analytics, subscriptionTier } = useSubscription();
-  const [dateRange, setDateRange] = useState<'7d' | '30d' | '90d'>('30d');
-  const [selectedCode, setSelectedCode] = useState<number | null>(null);
-  
-  // Create some mock data for the charts
-  const generateChartData = () => {
-    const data = [];
-    const today = new Date();
-    const daysToShow = dateRange === '7d' ? 7 : dateRange === '30d' ? 30 : 90;
+  const { user } = useAuth();
+  const { hasFeatureAccess, isLoading: subscriptionLoading } = useSubscription();
+  const [analyticsData, setAnalyticsData] = useState<AnalyticsData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [dateRange, setDateRange] = useState<DateRange>({ startDate: null, endDate: null });
+  const [chartData, setChartData] = useState<Record<string, ChartData>>({});
+
+  const fetchAnalytics = useCallback(async () => {
+    if (!user) return;
     
-    for (let i = daysToShow - 1; i >= 0; i--) {
-      const date = new Date(today);
-      date.setDate(date.getDate() - i);
-      const dateString = date.toISOString().split('T')[0];
-      
-      // Generate random data point based on selected range
-      const value = Math.floor(Math.random() * 15) + (dateRange === '7d' ? 5 : dateRange === '30d' ? 3 : 1);
-      
-      data.push({
-        date: dateString,
-        value
-      });
+    if (!hasFeatureAccess('analytics')) {
+      setError("Analytics feature is not available for your current subscription tier.");
+      setLoading(false);
+      return;
     }
-    
-    return data;
-  };
-  
-  const [chartData, setChartData] = useState(generateChartData());
-  
+
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await getAnalyticsData(user.uid, dateRange.startDate, dateRange.endDate);
+      setAnalyticsData(data);
+    } catch (err) {
+      console.error("Error fetching analytics data:", err);
+      setError(err instanceof Error ? err.message : "Failed to load analytics data.");
+    } finally {
+      setLoading(false);
+    }
+  }, [user, dateRange, hasFeatureAccess]);
+
   useEffect(() => {
-    setChartData(generateChartData());
-  }, [dateRange]);
+    fetchAnalytics();
+  }, [fetchAnalytics]);
+
+  // Memoized chart data generation
+  const generateChartData = useCallback(() => {
+    if (!analyticsData) {
+      setChartData({});
+      return;
+    }
+
+    const scansByDayData = {
+      labels: Object.keys(analyticsData.scansByDay || {}),
+      datasets: [
+        {
+          label: "Scans per Day",
+          data: Object.values(analyticsData.scansByDay || {}),
+          backgroundColor: "rgba(75, 192, 192, 0.6)",
+        },
+      ],
+    };
+    
+    const scansByCountryData = {
+        labels: Object.keys(analyticsData.scansByCountry || {}),
+        datasets: [
+            {
+                label: "Scans by Country",
+                data: Object.values(analyticsData.scansByCountry || {}).map(val => typeof val === 'number' ? val : 0), // Ensure data is number
+                backgroundColor: "rgba(153, 102, 255, 0.6)",
+            },
+        ],
+    };
+    
+    const deviceBreakdownData = {
+        labels: Object.keys(analyticsData.deviceBreakdown || {}),
+        datasets: [
+            {
+                label: "Scans by Device Type",
+                data: Object.values(analyticsData.deviceBreakdown || {}).map(val => typeof val === 'number' ? val : 0), // Ensure data is number
+                backgroundColor: "rgba(255, 159, 64, 0.6)",
+            },
+        ],
+    };
+    
+    setChartData({ scansByDayData, scansByCountryData, deviceBreakdownData });
+
+  }, [analyticsData]);
+
+  useEffect(() => {
+    if (analyticsData) {
+      generateChartData();
+    }
+  }, [analyticsData, generateChartData]); // Added generateChartData
+
+  if (subscriptionLoading || loading) {
+    return <div className="text-center py-10">Loading analytics...</div>;
+  }
   
-  if (!hasFeature('analytics')) {
+  if (error) {
+    return <div className="text-center py-10 text-red-600">Error: {error}</div>;
+  }
+
+  if (!hasFeatureAccess('analytics')) {
     return (
-      <div className="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
-        <div className="bg-white p-8 rounded-lg shadow-md max-w-3xl mx-auto">
-          <div className="text-center">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 mx-auto text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-            </svg>
-            <h2 className="mt-4 text-2xl font-bold text-gray-900">Analytics & Tracking</h2>
-            <p className="mt-2 text-gray-600">
-              Unlock powerful QR code scan analytics to track engagement and performance.
-            </p>
-            <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4 max-w-md mx-auto">
-              <h3 className="font-semibold text-blue-800">Premium Feature</h3>
-              <p className="mt-1 text-sm text-blue-600">
-                Analytics & Tracking is available on Pro and Business plans.
-              </p>
-              <div className="mt-4 flex justify-center">
-                <button
-                  onClick={() => router.push('/pricing')}
-                  className="inline-flex items-center px-4 py-2 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700"
-                >
-                  Upgrade Plan
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+      <div className="text-center py-10">
+        <h2 className="text-2xl font-semibold mb-4">Analytics Unavailable</h2>
+        <p>Upgrade to the Pro or Business tier to access detailed analytics.</p>
+        {/* Add link to pricing page */}
       </div>
     );
   }
 
+  if (!analyticsData) {
+    return <div className="text-center py-10">No analytics data available for the selected period.</div>;
+  }
+
+  const chartOptions = {
+    responsive: true,
+    plugins: {
+      legend: {
+        position: 'top' as const,
+      },
+      title: {
+        display: true,
+        text: 'Chart Title',
+      },
+    },
+  };
+
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">Analytics Dashboard</h1>
-        <p className="mt-1 text-gray-600">
-          Track and analyze your QR code and barcode performance.
-        </p>
+    <div className="container mx-auto px-4 py-8">
+      <h1 className="text-3xl font-bold mb-6">Analytics Dashboard</h1>
+      
+      {/* Date Range Picker */}
+      <div className="mb-6">
+        <SimpleDateRangePicker
+          initialRange={dateRange} 
+          onRangeChange={setDateRange} 
+        />
+        <button onClick={fetchAnalytics} className="ml-4 px-4 py-2 bg-blue-500 text-white rounded">
+          Apply Filter
+        </button>
       </div>
 
-      {/* Overview Stats */}
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4 mb-8">
-        <div className="bg-white overflow-hidden shadow rounded-lg">
-          <div className="px-4 py-5 sm:p-6">
-            <div className="flex items-center">
-              <div className="flex-shrink-0 bg-indigo-500 rounded-md p-3">
-                <svg className="h-6 w-6 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-              <div className="ml-5 w-0 flex-1">
-                <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">
-                    Total Scans
-                  </dt>
-                  <dd>
-                    <div className="text-lg font-medium text-gray-900">
-                      {analytics?.totalScans || 0}
-                    </div>
-                  </dd>
-                </dl>
-              </div>
-            </div>
-          </div>
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <SummaryCard title="Total Scans" value={analyticsData.totalScans} />
+        <SummaryCard title="Unique Devices" value={analyticsData.uniqueDevices} />
+        <SummaryCard title="Most Active Country" value={analyticsData.mostActiveCountry} />
+        <SummaryCard title="Top Referrer" value={analyticsData.topReferrer} />
+      </div>
+
+      {/* Charts */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {/* Scans per Day Chart */}
+        <div className="bg-white p-6 rounded-lg shadow">
+          <h2 className="text-xl font-semibold mb-4">Scans per Day</h2>
+          {chartData.scansByDayData?.labels?.length > 0 ? (
+            <Bar options={{ ...chartOptions, plugins: { ...chartOptions.plugins, title: { display: true, text: 'Scans per Day' } } }} data={chartData.scansByDayData} />
+          ) : (
+            <p>No scan data for this period.</p>
+          )}
         </div>
 
-        <div className="bg-white overflow-hidden shadow rounded-lg">
-          <div className="px-4 py-5 sm:p-6">
-            <div className="flex items-center">
-              <div className="flex-shrink-0 bg-green-500 rounded-md p-3">
-                <svg className="h-6 w-6 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
-                </svg>
-              </div>
-              <div className="ml-5 w-0 flex-1">
-                <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">
-                    Last 30 Days
-                  </dt>
-                  <dd>
-                    <div className="text-lg font-medium text-gray-900">
-                      {analytics?.lastMonthScans || 0}
-                    </div>
-                  </dd>
-                </dl>
-              </div>
-            </div>
-          </div>
+        {/* Scans by Country Chart */}
+        <div className="bg-white p-6 rounded-lg shadow">
+          <h2 className="text-xl font-semibold mb-4">Scans by Country</h2>
+           {chartData.scansByCountryData?.labels?.length > 0 ? (
+            <Bar options={{ ...chartOptions, plugins: { ...chartOptions.plugins, title: { display: true, text: 'Scans by Country' } } }} data={chartData.scansByCountryData} />
+           ) : (
+            <p>No country data available.</p>
+          )}
         </div>
 
-        <div className="bg-white overflow-hidden shadow rounded-lg">
-          <div className="px-4 py-5 sm:p-6">
-            <div className="flex items-center">
-              <div className="flex-shrink-0 bg-yellow-500 rounded-md p-3">
-                <svg className="h-6 w-6 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z" />
-                </svg>
-              </div>
-              <div className="ml-5 w-0 flex-1">
-                <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">
-                    Most Popular
-                  </dt>
-                  <dd>
-                    <div className="text-lg font-medium text-gray-900 truncate">
-                      {analytics?.topCode || "N/A"}
-                    </div>
-                  </dd>
-                </dl>
-              </div>
-            </div>
-          </div>
+        {/* Device Breakdown Chart */}
+        <div className="bg-white p-6 rounded-lg shadow">
+          <h2 className="text-xl font-semibold mb-4">Device Breakdown</h2>
+          {chartData.deviceBreakdownData?.labels?.length > 0 ? (
+            <Bar options={{ ...chartOptions, plugins: { ...chartOptions.plugins, title: { display: true, text: 'Device Breakdown' } } }} data={chartData.deviceBreakdownData} />
+          ) : (
+            <p>No device data available.</p>
+          )}
         </div>
 
-        <div className="bg-white overflow-hidden shadow rounded-lg">
-          <div className="px-4 py-5 sm:p-6">
-            <div className="flex items-center">
-              <div className="flex-shrink-0 bg-pink-500 rounded-md p-3">
-                <svg className="h-6 w-6 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-                </svg>
-              </div>
-              <div className="ml-5 w-0 flex-1">
-                <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">
-                    Growth
-                  </dt>
-                  <dd>
-                    <div className="text-lg font-medium text-green-600">
-                      +{analytics?.monthlyGrowth || 0}%
-                    </div>
-                  </dd>
-                </dl>
-              </div>
-            </div>
-          </div>
+        {/* Top Referrers List (Example) */}
+        <div className="bg-white p-6 rounded-lg shadow">
+          <h2 className="text-xl font-semibold mb-4">Top Referrers</h2>
+          <ul className="space-y-2">
+            {Object.entries(analyticsData.scansByReferrer || {}).slice(0, 5).map(([referrer, count]) => (
+              <li key={referrer} className="flex justify-between">
+                <span>{referrer || 'Direct'}</span>
+                <span className="font-medium">{typeof count === 'number' ? count : 'N/A'} scans</span>
+              </li>
+            ))}
+             {Object.keys(analyticsData.scansByReferrer || {}).length === 0 && <li>No referrer data.</li>}
+          </ul>
+        </div>
+        
+        {/* Top Scan Locations (Example) */}
+        <div className="bg-white p-6 rounded-lg shadow">
+          <h2 className="text-xl font-semibold mb-4">Top Scan Locations</h2>
+          <ul className="space-y-2">
+             {Object.entries(analyticsData.scansByLocation || {}).slice(0, 5).map(([location, count]) => (
+              <li key={location} className="flex justify-between">
+                <span>{location}</span>
+                <span className="font-medium">{typeof count === 'number' ? count : 'N/A'} scans</span>
+              </li>
+            ))}
+            {Object.keys(analyticsData.scansByLocation || {}).length === 0 && <li>No location data.</li>}
+          </ul>
         </div>
       </div>
 
-      {/* Scan Activity Chart */}
-      <div className="bg-white shadow rounded-lg mb-8">
-        <div className="px-4 py-5 border-b border-gray-200 sm:px-6">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg leading-6 font-medium text-gray-900">
-              Scan Activity
-            </h3>
-            <div className="flex space-x-1">
-              <button
-                onClick={() => setDateRange('7d')}
-                className={`px-3 py-1 text-sm font-medium rounded ${
-                  dateRange === '7d'
-                    ? 'bg-blue-100 text-blue-700'
-                    : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
-                }`}
-              >
-                7D
-              </button>
-              <button
-                onClick={() => setDateRange('30d')}
-                className={`px-3 py-1 text-sm font-medium rounded ${
-                  dateRange === '30d'
-                    ? 'bg-blue-100 text-blue-700'
-                    : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
-                }`}
-              >
-                30D
-              </button>
-              <button
-                onClick={() => setDateRange('90d')}
-                className={`px-3 py-1 text-sm font-medium rounded ${
-                  dateRange === '90d'
-                    ? 'bg-blue-100 text-blue-700'
-                    : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
-                }`}
-              >
-                90D
-              </button>
-            </div>
-          </div>
+      {/* Hero Section */}
+      <div className="hero bg-cover bg-center py-20" style={{ backgroundImage: 'url(/path/to/your/image.jpg)' }}>
+        <div className="container mx-auto text-center">
+          <h1 className="text-5xl font-bold text-white mb-4">Welcome to Our Service</h1>
+          <p className="text-xl text-white mb-8">Discover the best features and benefits we offer.</p>
+          <button className="px-6 py-3 bg-blue-500 text-white rounded">Get Started</button>
         </div>
-        <div className="px-4 py-5 sm:p-6">
-          <div className="aspect-w-16 aspect-h-6">
-            {/* Simplified chart representation using CSS */}
-            <div className="h-64 flex items-end space-x-2">
-              {chartData.map((dataPoint, i) => (
-                <div key={i} className="flex-1 flex flex-col items-center">
-                  <div
-                    className="w-full bg-blue-500 rounded-t"
-                    style={{ height: `${dataPoint.value * 3}px` }}
-                  ></div>
-                  {(i === 0 || i === chartData.length - 1 || i % Math.floor(chartData.length / 5) === 0) && (
-                    <div className="text-xs text-gray-500 mt-1 transform -rotate-45 origin-top-left">
-                      {new Date(dataPoint.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-                    </div>
-                  )}
-                </div>
-              ))}
+      </div>
+
+      {/* Features Section */}
+      <div className="features py-20">
+        <div className="container mx-auto">
+          <h2 className="text-3xl font-bold text-center mb-10">Features</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div className="feature text-center">
+              <img src="/path/to/icon1.png" alt="Feature 1" className="mx-auto mb-4" />
+              <h3 className="text-xl font-semibold mb-2">Feature 1</h3>
+              <p>Short description of feature 1.</p>
+            </div>
+            <div className="feature text-center">
+              <img src="/path/to/icon2.png" alt="Feature 2" className="mx-auto mb-4" />
+              <h3 className="text-xl font-semibold mb-2">Feature 2</h3>
+              <p>Short description of feature 2.</p>
+            </div>
+            <div className="feature text-center">
+              <img src="/path/to/icon3.png" alt="Feature 3" className="mx-auto mb-4" />
+              <h3 className="text-xl font-semibold mb-2">Feature 3</h3>
+              <p>Short description of feature 3.</p>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Geographic Data (Business plan only) */}
-      {hasFeature('geographicData') && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-          <div className="bg-white shadow rounded-lg">
-            <div className="px-4 py-5 border-b border-gray-200 sm:px-6">
-              <h3 className="text-lg leading-6 font-medium text-gray-900">
-                Geographic Distribution
-              </h3>
+      {/* Testimonials Section */}
+      <div className="testimonials bg-gray-100 py-20">
+        <div className="container mx-auto">
+          <h2 className="text-3xl font-bold text-center mb-10">Testimonials</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="testimonial p-6 bg-white rounded shadow">
+              <p className="mb-4">"This service is amazing! It has changed the way I work."</p>
+              <p className="font-semibold">- Customer Name</p>
             </div>
-            <div className="px-4 py-5 sm:p-6">
-              <div className="space-y-4">
-                {Object.entries(analytics?.scansByCountry || {}).map(([country, count], i) => (
-                  <div key={i} className="flex items-center">
-                    <div className="w-32 text-sm text-gray-600">{country}</div>
-                    <div className="flex-1">
-                      <div className="w-full bg-gray-200 rounded-full h-2.5">
-                        <div
-                          className="bg-blue-600 h-2.5 rounded-full"
-                          style={{ width: `${(count / (analytics?.totalScans || 1)) * 100}%` }}
-                        ></div>
-                      </div>
-                    </div>
-                    <div className="w-12 text-right text-sm text-gray-600 ml-4">{count}</div>
-                  </div>
-                ))}
-              </div>
+            <div className="testimonial p-6 bg-white rounded shadow">
+              <p className="mb-4">"Highly recommend to everyone looking for great features."</p>
+              <p className="font-semibold">- Another Customer</p>
             </div>
           </div>
-
-          <div className="bg-white shadow rounded-lg">
-            <div className="px-4 py-5 border-b border-gray-200 sm:px-6">
-              <h3 className="text-lg leading-6 font-medium text-gray-900">
-                Device Breakdown
-              </h3>
-            </div>
-            <div className="px-4 py-5 sm:p-6">
-              <div className="space-y-4">
-                {Object.entries(analytics?.scansByDevice || {}).map(([device, count], i) => (
-                  <div key={i} className="flex items-center">
-                    <div className="w-24 text-sm text-gray-600">{device}</div>
-                    <div className="flex-1">
-                      <div className="w-full bg-gray-200 rounded-full h-2.5">
-                        <div
-                          className="bg-green-600 h-2.5 rounded-full"
-                          style={{ width: `${(count / (analytics?.totalScans || 1)) * 100}%` }}
-                        ></div>
-                      </div>
-                    </div>
-                    <div className="w-12 text-right text-sm text-gray-600 ml-4">{count}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* QR Code Performance */}
-      <div className="bg-white shadow rounded-lg">
-        <div className="px-4 py-5 border-b border-gray-200 sm:px-6">
-          <h3 className="text-lg leading-6 font-medium text-gray-900">
-            QR Code Performance
-          </h3>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Name
-                </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Total Scans
-                </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Last Scanned
-                </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  {hasFeature('conversionAnalysis') ? 'Conversion Rate' : 'Status'}
-                </th>
-                <th scope="col" className="relative px-6 py-3">
-                  <span className="sr-only">Actions</span>
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {mockQrCodes.map((code) => (
-                <tr key={code.id} className={selectedCode === code.id ? 'bg-blue-50' : ''}>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900">{code.name}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">{code.scans}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-500">{code.lastScanned}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    {hasFeature('conversionAnalysis') ? (
-                      <div className="text-sm text-green-600">{(Math.random() * 5 + 2).toFixed(1)}%</div>
-                    ) : (
-                      <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-                        Active
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    <button
-                      onClick={() => setSelectedCode(code.id === selectedCode ? null : code.id)}
-                      className="text-indigo-600 hover:text-indigo-900"
-                    >
-                      {code.id === selectedCode ? 'Hide Details' : 'View Details'}
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
         </div>
       </div>
 
-      {/* Export Analytics (Business Plan) */}
-      {subscriptionTier === 'business' && (
-        <div className="mt-8 bg-gray-50 border border-gray-200 rounded-lg p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-lg font-medium text-gray-900">Export Analytics</h3>
-              <p className="mt-1 text-sm text-gray-500">
-                Download detailed analytics reports in various formats
-              </p>
-            </div>
-            <div className="flex space-x-3">
-              <button className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
-                Export CSV
-              </button>
-              <button className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
-                Export PDF
-              </button>
-              <button className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
-                Schedule Reports
-              </button>
-            </div>
-          </div>
+      {/* About Us Section */}
+      <div className="about-us py-20">
+        <div className="container mx-auto text-center">
+          <h2 className="text-3xl font-bold mb-6">About Us</h2>
+          <p className="mb-4">We are a company dedicated to providing the best service to our customers.</p>
+          <p>Our mission is to deliver high-quality products that meet the needs of our clients.</p>
         </div>
-      )}
+      </div>
 
-      {/* Upgrade Banner for Pro Users */}
-      {subscriptionTier === 'pro' && (
-        <div className="mt-8 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-lg shadow-lg overflow-hidden">
-          <div className="px-6 py-8 md:p-10 md:flex md:items-center md:justify-between">
-            <div>
-              <h3 className="text-xl font-semibold text-white">
-                Get Advanced Analytics with Business Plan
-              </h3>
-              <p className="mt-2 text-white text-opacity-90 text-sm md:text-base">
-                Unlock geographic data, device tracking, conversion analysis, and more.
-              </p>
+      {/* Pricing Section */}
+      <div className="pricing bg-gray-100 py-20">
+        <div className="container mx-auto">
+          <h2 className="text-3xl font-bold text-center mb-10">Pricing</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div className="pricing-plan p-6 bg-white rounded shadow text-center">
+              <h3 className="text-xl font-semibold mb-4">Basic Plan</h3>
+              <p className="text-2xl font-bold mb-4">$9.99/month</p>
+              <button className="px-4 py-2 bg-blue-500 text-white rounded">Choose Plan</button>
             </div>
-            <div className="mt-6 md:mt-0">
-              <Link
-                href="/pricing"
-                className="inline-flex items-center px-6 py-3 border border-transparent shadow text-base font-medium rounded-md text-indigo-600 bg-white hover:bg-indigo-50"
-              >
-                Upgrade to Business
-              </Link>
+            <div className="pricing-plan p-6 bg-white rounded shadow text-center">
+              <h3 className="text-xl font-semibold mb-4">Pro Plan</h3>
+              <p className="text-2xl font-bold mb-4">$19.99/month</p>
+              <button className="px-4 py-2 bg-blue-500 text-white rounded">Choose Plan</button>
+            </div>
+            <div className="pricing-plan p-6 bg-white rounded shadow text-center">
+              <h3 className="text-xl font-semibold mb-4">Enterprise Plan</h3>
+              <p className="text-2xl font-bold mb-4">Contact Us</p>
+              <button className="px-4 py-2 bg-blue-500 text-white rounded">Contact Sales</button>
             </div>
           </div>
         </div>
-      )}
+      </div>
+
+      {/* Contact Section */}
+      <div className="contact py-20">
+        <div className="container mx-auto text-center">
+          <h2 className="text-3xl font-bold mb-6">Contact Us</h2>
+          <p className="mb-4">Have questions? We'd love to hear from you.</p>
+          <form className="max-w-md mx-auto">
+            <input type="text" placeholder="Your Name" className="w-full p-2 mb-4 border rounded" />
+            <input type="email" placeholder="Your Email" className="w-full p-2 mb-4 border rounded" />
+            <textarea placeholder="Your Message" className="w-full p-2 mb-4 border rounded"></textarea>
+            <button type="submit" className="px-6 py-3 bg-blue-500 text-white rounded">Send Message</button>
+          </form>
+        </div>
+      </div>
+
+      {/* Footer */}
+      <footer className="footer bg-gray-800 text-white py-6">
+        <div className="container mx-auto text-center">
+          <p>&copy; 2023 Your Company. All rights reserved.</p>
+          <div className="social-icons mt-4">
+            <a href="#" className="mx-2">Facebook</a>
+            <a href="#" className="mx-2">Twitter</a>
+            <a href="#" className="mx-2">LinkedIn</a>
+          </div>
+        </div>
+      </footer>
+    </div>
+  );
+}
+
+interface SummaryCardProps {
+  title: string;
+  value: string | number;
+}
+
+function SummaryCard({ title, value }: SummaryCardProps) {
+  return (
+    <div className="bg-white p-6 rounded-lg shadow">
+      <h3 className="text-sm font-medium text-gray-500 mb-1">{title}</h3>
+      <p className="text-2xl font-semibold text-gray-900">{value || 'N/A'}</p>
     </div>
   );
 } 

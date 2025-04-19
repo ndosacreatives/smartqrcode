@@ -1,0 +1,36 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+    "status": {
+      "$uid": {
+        ".read": "auth != null",
+        ".write": "auth != null && auth.uid == $uid"
+      }
+    },
+    "stats": {
+      "scans": {
+        "$codeId": {
+          ".read": "auth != null && root.child('qrcodes').child($codeId).child('ownerId').val() == auth.uid || root.child('users').child(auth.uid).child('role').val() == 'admin'",
+          ".write": false,
+          "count": {
+            ".read": true
+          },
+          "lastScan": {
+            ".read": true
+          }
+        }
+      }
+    },
+    "qrcodes": {
+      "$codeId": {
+        ".read": false,
+        ".write": "auth != null && auth.uid == data.child('ownerId').val() || auth != null && root.child('users').child(auth.uid).child('role').val() == 'admin'"
+      }
+    },
+    "analytics": {
+      ".read": "auth != null && root.child('users').child(auth.uid).child('role').val() == 'admin'",
+      ".write": false
+    }
+  }
+} 

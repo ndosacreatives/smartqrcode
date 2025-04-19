@@ -1,0 +1,4 @@
+{
+  "plugins": [],
+  "disabled_plugins": ["@netlify/plugin-nextjs"]
+} 

@@ -20,7 +20,7 @@ export default function QRCodeModal({
   downloadable = true 
 }: QRCodeModalProps) {
   const qrRef = useRef<HTMLDivElement>(null);
-  const [qrSize, setQrSize] = useState(256);
+  const [qrSize] = useState(256);
 
   // Close modal when Escape key is pressed
   useEffect(() => {

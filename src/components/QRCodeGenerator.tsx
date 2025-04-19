@@ -1,11 +1,13 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import QRCode from "react-qr-code";
 import * as qrcode from "qrcode";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { useSubscription } from "@/context/SubscriptionContext";
+import { useSubscription } from "@/hooks/useSubscription";
+import { useTrackUsage } from "@/hooks/useTrackUsage";
+import { FeatureType } from "@/lib/subscription";
 
 type QRCodeType = 'url' | 'text' | 'email' | 'phone' | 'sms' | 'contact' | 'wifi';
 
@@ -28,22 +30,26 @@ interface FormField {
 const qrTemplates = [
   { id: "basic", name: "Basic", free: true },
   { id: "rounded", name: "Rounded Corners", free: true },
-  { id: "gradient", name: "Gradient", free: false },
-  { id: "dotted", name: "Dotted", free: false },
-  { id: "framed", name: "Framed", free: false },
-  { id: "logo-overlay", name: "Logo Overlay", free: false },
+  { id: "gradient", name: "Gradient", premium: true, tier: 'pro' },
+  { id: "dotted", name: "Dotted", premium: true, tier: 'pro' },
+  { id: "framed", name: "Framed", premium: true, tier: 'business' },
+  { id: "logo-overlay", name: "Logo Overlay", premium: true, tier: 'business' },
 ];
 
 export default function QRCodeGenerator({ onDownload }: QRCodeGeneratorProps) {
   // Use the subscription context
   const { 
-    hasFeature, 
-    remainingDaily, 
-    decrementDaily, 
-    showWatermark,
-    bulkGenerationLimit,
-    subscriptionTier
+    subscriptionTier,
+    getLimit
   } = useSubscription();
+  
+  // Use the tracking hook
+  const {
+    trackUsage,
+    isTracking,
+    error: trackingError,
+    getRemainingUsage
+  } = useTrackUsage();
   
   const router = useRouter();
   const [qrType, setQRType] = useState<QRCodeType>('url');
@@ -69,9 +75,9 @@ export default function QRCodeGenerator({ onDownload }: QRCodeGeneratorProps) {
   });
 
   const [qrValue, setQrValue] = useState<string>('');
-  const [size, setSize] = useState<number>(200);
-  const [backgroundColor, setBackgroundColor] = useState<string>('#FFFFFF');
-  const [foregroundColor, setForegroundColor] = useState<string>('#000000');
+  const [size] = useState<number>(200);
+  const [backgroundColor] = useState<string>('#FFFFFF');
+  const [foregroundColor] = useState<string>('#000000');
   const [imageFormat, setImageFormat] = useState<ImageFormat>('png');
   const qrRef = useRef<HTMLDivElement>(null);
   const [selectedTemplate, setSelectedTemplate] = useState<string>("basic");
@@ -140,53 +146,54 @@ export default function QRCodeGenerator({ onDownload }: QRCodeGeneratorProps) {
   ];
 
   useEffect(() => {
+    // Moved function inside useEffect to fix the dependency warning
+    const updateQRValue = () => {
+      let value = '';
+  
+      switch (qrType) {
+        case 'url':
+          value = formValues.url;
+          break;
+        case 'text':
+          value = formValues.text;
+          break;
+        case 'email':
+          value = `mailto:${formValues.email}`;
+          if (formValues.emailSubject) value += `?subject=${encodeURIComponent(formValues.emailSubject)}`;
+          if (formValues.emailBody) value += `${formValues.emailSubject ? '&' : '?'}body=${encodeURIComponent(formValues.emailBody)}`;
+          break;
+        case 'phone':
+          value = `tel:${formValues.phone}`;
+          break;
+        case 'sms':
+          value = `sms:${formValues.smsPhone}`;
+          if (formValues.smsMessage) value += `?body=${encodeURIComponent(formValues.smsMessage)}`;
+          break;
+        case 'contact':
+          // Simple vCard format
+          value = 'BEGIN:VCARD\nVERSION:3.0\n';
+          value += formValues.contactName ? `FN:${formValues.contactName}\n` : '';
+          value += formValues.contactOrg ? `ORG:${formValues.contactOrg}\n` : '';
+          value += formValues.contactPhone ? `TEL:${formValues.contactPhone}\n` : '';
+          value += formValues.contactEmail ? `EMAIL:${formValues.contactEmail}\n` : '';
+          value += formValues.contactAddress ? `ADR:;;${formValues.contactAddress};;;\n` : '';
+          value += formValues.contactUrl ? `URL:${formValues.contactUrl}\n` : '';
+          value += 'END:VCARD';
+          break;
+        case 'wifi':
+          value = `WIFI:T:${formValues.wifiType};S:${formValues.wifiSsid};`;
+          if (formValues.wifiPassword && formValues.wifiType !== 'nopass') {
+            value += `P:${formValues.wifiPassword};`;
+          }
+          value += `H:${formValues.wifiHidden};`;
+          break;
+      }
+  
+      setQrValue(value);
+    };
+    
     updateQRValue();
   }, [qrType, formValues]);
-
-  const updateQRValue = () => {
-    let value = '';
-
-    switch (qrType) {
-      case 'url':
-        value = formValues.url;
-        break;
-      case 'text':
-        value = formValues.text;
-        break;
-      case 'email':
-        value = `mailto:${formValues.email}`;
-        if (formValues.emailSubject) value += `?subject=${encodeURIComponent(formValues.emailSubject)}`;
-        if (formValues.emailBody) value += `${formValues.emailSubject ? '&' : '?'}body=${encodeURIComponent(formValues.emailBody)}`;
-        break;
-      case 'phone':
-        value = `tel:${formValues.phone}`;
-        break;
-      case 'sms':
-        value = `sms:${formValues.smsPhone}`;
-        if (formValues.smsMessage) value += `?body=${encodeURIComponent(formValues.smsMessage)}`;
-        break;
-      case 'contact':
-        // Simple vCard format
-        value = 'BEGIN:VCARD\nVERSION:3.0\n';
-        value += formValues.contactName ? `FN:${formValues.contactName}\n` : '';
-        value += formValues.contactOrg ? `ORG:${formValues.contactOrg}\n` : '';
-        value += formValues.contactPhone ? `TEL:${formValues.contactPhone}\n` : '';
-        value += formValues.contactEmail ? `EMAIL:${formValues.contactEmail}\n` : '';
-        value += formValues.contactAddress ? `ADR:;;${formValues.contactAddress};;;\n` : '';
-        value += formValues.contactUrl ? `URL:${formValues.contactUrl}\n` : '';
-        value += 'END:VCARD';
-        break;
-      case 'wifi':
-        value = `WIFI:T:${formValues.wifiType};S:${formValues.wifiSsid};`;
-        if (formValues.wifiPassword && formValues.wifiType !== 'nopass') {
-          value += `P:${formValues.wifiPassword};`;
-        }
-        value += `H:${formValues.wifiHidden};`;
-        break;
-    }
-
-    setQrValue(value);
-  };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { id, value } = e.target;
@@ -198,14 +205,39 @@ export default function QRCodeGenerator({ onDownload }: QRCodeGeneratorProps) {
     return requiredFields.every(field => formValues[field.id].trim() !== '');
   };
 
+  // Calculate progress bar width here
+  const qrCodesRemaining = useMemo(() => {
+      return getRemainingUsage('qrCodesGenerated');
+  }, [getRemainingUsage]);
+
+  const qrCodeLimit = useMemo(() => {
+      return getLimit('qrGenerationLimit');
+  }, [getLimit]);
+
+  const widthPercentage = useMemo(() => {
+      return Math.min(100, (qrCodesRemaining / (qrCodeLimit || 1)) * 100);
+  }, [qrCodesRemaining, qrCodeLimit]);
+
   const downloadQRCode = async () => {
     try {
-      // Only decrement for free tier
-      if (!hasFeature("noWatermark")) {
-        decrementDaily();
+      if (qrValue.trim() === "") return;
+      
+      // Check if user can generate QR code (use calculated remaining)
+      if (qrCodesRemaining <= 0) {
+        alert(`You've reached your QR code generation limit for your ${subscriptionTier} plan. Please upgrade to continue.`);
+        router.push('/pricing');
+        return;
       }
       
-      if (qrValue.trim() === "") return;
+      // Track usage (pass correct FeatureType)
+      const trackSuccess = await trackUsage('qrCodesGenerated');
+      
+      if (!trackSuccess) {
+        if (trackingError) {
+          alert(trackingError);
+        }
+        return;
+      }
       
       if (imageFormat === 'svg') {
         // For SVG format, we'll use the actual QR code SVG
@@ -269,6 +301,26 @@ export default function QRCodeGenerator({ onDownload }: QRCodeGeneratorProps) {
         </div> */}
         
         <div className="rounded-lg border border-neutral-200 p-4 bg-neutral-50">
+          {/* Usage Progress Bar */}
+          <div className="flex justify-between items-center">
+            <span className="text-sm font-medium text-gray-700">QR Codes Remaining:</span>
+            <span className="text-sm font-bold">{qrCodesRemaining}</span>
+          </div>
+          <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
+            <div 
+              className="bg-indigo-600 h-2 rounded-full" 
+              style={{ width: `${widthPercentage}%` }}
+            ></div>
+          </div>
+          
+          {subscriptionTier === 'free' && qrCodesRemaining < 3 && (
+            <div className="mt-2 text-xs text-amber-700">
+              <Link href="/pricing" className="text-indigo-600 hover:underline">
+                Upgrade to Pro
+              </Link> for unlimited QR codes.
+            </div>
+          )}
+          
           <label className="block text-neutral-700 text-sm font-semibold mb-2" htmlFor="qr-type">
             QR Code Type
           </label>
@@ -331,43 +383,45 @@ export default function QRCodeGenerator({ onDownload }: QRCodeGeneratorProps) {
             ))}
           </div>
           
-          {/* Add template selector */}
-          <div className="mb-6 mt-6">
-            <h3 className="text-lg font-semibold mb-3">Template Style</h3>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          {/* Render QR templates with subscription checks */}
+          <div className="mt-4">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              QR Code Style
+            </label>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
               {qrTemplates.map((template) => {
-                const isPremium = !template.free && !hasFeature("premiumTemplates");
+                const isPremiumLocked = template.premium && 
+                  (template.tier === 'pro' ? subscriptionTier === 'free' : 
+                  template.tier === 'business' ? subscriptionTier === 'free' || subscriptionTier === 'pro' : false);
+                
                 return (
-                  <div 
+                  <div
                     key={template.id}
-                    className={`relative p-3 border rounded-lg cursor-pointer transition-all
-                      ${selectedTemplate === template.id ? 'ring-2 ring-primary border-transparent' : 'border-gray-200 hover:border-gray-300'}
-                      ${isPremium ? 'opacity-50' : ''}
-                    `}
+                    className={`relative p-4 border rounded-lg text-center transition-all cursor-pointer ${selectedTemplate === template.id ? 'border-indigo-500 bg-indigo-50' : 'border-gray-200 hover:border-gray-300'} ${isPremiumLocked ? 'opacity-60' : ''}`}
                     onClick={() => {
-                      if (isPremium) {
-                        router.push('/pricing');
-                      } else {
+                      if (!isPremiumLocked) {
                         setSelectedTemplate(template.id);
+                      } else {
+                        router.push('/pricing');
                       }
                     }}
                   >
-                    <div className="h-12 w-full flex items-center justify-center">
-                      {/* Template preview icon would go here */}
-                      <div className={`h-8 w-8 p-1 flex items-center justify-center border border-gray-400
-                        ${template.id === 'rounded' ? 'rounded-lg' : ''}
-                        ${template.id === 'gradient' ? 'bg-gradient-to-r from-blue-400 to-purple-500' : ''}
-                        ${template.id === 'dotted' ? 'border-dashed' : ''}
-                        ${template.id === 'framed' ? 'p-0 border-2' : ''}
-                      `}>
-                        <div className="h-4 w-4 bg-gray-800"></div>
-                      </div>
+                    {/* Template preview would go here */}
+                    <div className="h-16 mb-2 flex items-center justify-center bg-gray-100 rounded">
+                      <span className="text-xs text-gray-500">{template.name}</span>
                     </div>
-                    <p className="text-center text-sm mt-2">{template.name}</p>
-                    {isPremium && (
-                      <span className="absolute top-2 right-2 text-xs px-1 py-0.5 bg-blue-100 text-blue-800 rounded">
-                        PRO
-                      </span>
+                    
+                    <span className="text-sm">{template.name}</span>
+                    
+                    {isPremiumLocked && (
+                      <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-70 rounded-lg">
+                        <div className="bg-indigo-100 text-indigo-800 text-xs py-1 px-2 rounded-full flex items-center">
+                          <svg className="h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                          </svg>
+                          {template.tier.charAt(0).toUpperCase() + template.tier.slice(1)}+
+                        </div>
+                      </div>
                     )}
                   </div>
                 );
@@ -378,13 +432,26 @@ export default function QRCodeGenerator({ onDownload }: QRCodeGeneratorProps) {
           <button
             className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center text-sm"
             onClick={downloadQRCode}
-            disabled={!isFormValid() || !qrValue}
+            disabled={!isFormValid() || !qrValue || isTracking || qrCodesRemaining <= 0}
           >
-            <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
-              <path d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V7z" />
-            </svg>
-            Generate QR Code
+            {isTracking ? (
+              <svg className="animate-spin h-5 w-5 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+            ) : (
+              <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                <path d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V7z" />
+              </svg>
+            )}
+            {isTracking ? 'Generating...' : 'Generate QR Code'}
           </button>
+          
+          {trackingError && (
+            <div className="mt-2 p-2 bg-red-50 text-red-600 text-sm rounded">
+              {trackingError}
+            </div>
+          )}
         </div>
       </div>
 
@@ -407,7 +474,7 @@ export default function QRCodeGenerator({ onDownload }: QRCodeGeneratorProps) {
                 />
                 
                 {/* Watermark for free tier */}
-                {showWatermark && (
+                {subscriptionTier === 'free' && qrCodesRemaining < 3 && (
                   <div className="absolute inset-0 flex items-center justify-center">
                     <div className="absolute transform rotate-45 text-gray-300 text-lg font-bold opacity-50">
                       SMART QR
@@ -425,85 +492,71 @@ export default function QRCodeGenerator({ onDownload }: QRCodeGeneratorProps) {
             )}
           </div>
           
-          {remainingDaily <= 2 && !hasFeature("noWatermark") && (
-            <div className="mt-4 text-xs text-amber-600 bg-amber-50 p-2 rounded-md w-full text-center">
-              You have {remainingDaily} QR codes remaining today. 
-              <Link href="/pricing" className="ml-1 underline">Upgrade for unlimited.</Link>
-            </div>
-          )}
-          
           <p className="text-xs text-neutral-500 mt-3 h-4">
             {qrValue && `Type: ${qrTypes.find(t => t.value === qrType)?.label}`}
           </p>
         </div>
         
         {/* Format selector */}
-        <div className="mt-6 bg-white p-6 rounded-lg shadow-sm border border-neutral-200">
-          <h3 className="text-lg font-semibold mb-4">Download Options</h3>
-          
-          <div className="bg-zinc-50 p-4 rounded-lg border border-zinc-200 mb-4">
-            <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="image-format">
-              Download Format
-            </label>
-            <div className="flex flex-wrap gap-3">
-              {imageFormats.map((format) => {
-                const isPremium = format.premium && !hasFeature(format.value === 'svg' ? 'svgDownload' : 'pdfDownload');
-                return (
-                  <label 
-                    key={format.value} 
-                    className={`inline-flex items-center ${isPremium ? 'opacity-50' : ''}`}
-                    title={isPremium ? 'Premium feature - Upgrade to unlock' : ''}
-                  >
-                    <input
-                      type="radio"
-                      className="form-radio"
-                      name="image-format"
-                      value={format.value}
-                      checked={imageFormat === format.value}
-                      onChange={() => {
-                        if (isPremium) {
-                          router.push('/pricing');
-                        } else {
-                          setImageFormat(format.value as ImageFormat);
-                        }
-                      }}
-                      disabled={isPremium}
-                    />
-                    <span className="ml-2">{format.label}</span>
-                    {isPremium && (
-                      <span className="ml-1 text-xs text-blue-600 font-semibold">PRO</span>
-                    )}
-                  </label>
-                );
-              })}
-            </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Download Format
+          </label>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            {imageFormats.map((format) => {
+              const isPremium = format.premium && (subscriptionTier === 'free');
+              
+              return (
+                <button
+                  key={format.value}
+                  type="button"
+                  onClick={() => {
+                    if (!isPremium) {
+                      setImageFormat(format.value as ImageFormat);
+                    } else {
+                      router.push('/pricing');
+                    }
+                  }}
+                  className={`
+                    px-3 py-2 text-sm font-medium rounded-md transition
+                    ${imageFormat === format.value && !isPremium
+                      ? 'bg-indigo-600 text-white'
+                      : isPremium
+                        ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                        : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
+                    }
+                    ${isPremium ? 'relative overflow-hidden' : ''}
+                  `}
+                >
+                  {format.label}
+                  {isPremium && (
+                    <div className="absolute top-0 right-0 -mr-1 -mt-1 text-xs bg-indigo-200 text-indigo-800 px-1 rounded-bl">
+                      PRO
+                    </div>
+                  )}
+                </button>
+              );
+            })}
           </div>
-          
-          <button
-            className="w-full bg-primary hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline flex items-center justify-center"
-            onClick={downloadQRCode}
-            disabled={!qrValue}
-          >
-            <span>Download QR Code</span>
-            <span className="ml-2">(.{imageFormat.toUpperCase()})</span>
-          </button>
         </div>
         
-        {/* Premium feature banner */}
-        {subscriptionTier === 'free' && (
-          <div className="mt-8 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-            <h3 className="font-semibold text-blue-800">Unlock Premium Features</h3>
-            <p className="text-sm text-blue-600 mt-1">
-              Upgrade to Pro for advanced customization options, SVG downloads, and to remove watermarks.
-            </p>
-            <button
-              onClick={() => router.push('/pricing')}
-              className="mt-2 px-4 py-1 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700"
-            >
-              View Plans
-            </button>
+        {/* Add a subscription info section */}
+        <div className="mt-6 bg-gray-50 p-4 rounded-lg border border-gray-200">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-sm font-medium">Your {subscriptionTier.charAt(0).toUpperCase() + subscriptionTier.slice(1)} Plan</div>
+              <div className="text-xs text-gray-500">
+                {getRemainingUsage('qrCodesGenerated')} QR codes remaining
+              </div>
+            </div>
+            
+            {subscriptionTier !== 'business' && (
+              <Link href="/pricing" className="text-xs text-indigo-600 hover:text-indigo-800 font-medium">
+                Upgrade
+              </Link>
+            )}
           </div>
-        )}
+        </div>
       </div>
     </div>
   );

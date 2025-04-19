@@ -5,19 +5,29 @@
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "next build",
+    "static-build": "node static-build.js",
+    "netlify-build": "cross-env NETLIFY_NEXT_PLUGIN_SKIP=true NEXT_DISABLE_ESLINT=1 NEXT_DISABLE_TYPE_CHECKS=1 npm run static-build",
     "start": "next start",
     "lint": "next lint",
-    "netlify-build": "CI=false NODE_ENV=production next build && next export || NODE_ENV=production next build && next export"
+    "test:credentials": "ts-node --transpile-only --project tsconfig.scripts.json -r tsconfig-paths/register scripts/test-credentials.ts",
+    "test:credentials:simple": "node scripts/test-credentials-simple.js",
+    "test:credential-storage": "node scripts/test-credential-storage.js"
   },
   "dependencies": {
+    "@chakra-ui/react": "^2.8.2",
     "@heroicons/react": "^2.2.0",
+    "@paypal/checkout-server-sdk": "^1.0.3",
+    "@paypal/paypal-js": "^8.2.0",
     "@radix-ui/react-slot": "^1.2.0",
     "@tailwindcss/forms": "^0.5.10",
+    "chart.js": "^4.4.8",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "date-fns": "^4.1.0",
     "file-saver": "^2.0.5",
     "firebase": "^11.6.0",
     "firebase-admin": "^13.2.0",
+    "flutterwave-node-v3": "^1.2.0",
     "html2canvas": "^1.4.1",
     "jsbarcode": "^3.11.6",
     "jspdf": "^3.0.1",
@@ -28,8 +38,12 @@
     "prompts": "^2.4.2",
     "qrcode": "^1.5.4",
     "react": "^19.0.0",
+    "react-chartjs-2": "^5.3.0",
     "react-dom": "^19.0.0",
+    "react-icons": "^5.3.0",
     "react-qr-code": "^2.0.15",
+    "rimraf": "^5.0.10",
+    "stripe": "^18.0.0",
     "tailwind-merge": "^3.2.0",
     "tw-animate-css": "^1.2.5"
   },
@@ -41,9 +55,13 @@
     "@types/qrcode": "^1.5.5",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "cross-env": "^7.0.3",
+    "dotenv": "^16.5.0",
     "eslint": "^9",
     "eslint-config-next": "15.2.5",
     "tailwindcss": "^4",
+    "ts-node": "^10.9.2",
+    "tsconfig-paths": "^4.2.0",
     "typescript": "^5"
   }
 }

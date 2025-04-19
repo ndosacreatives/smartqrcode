@@ -16,8 +16,11 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en">
-      <body className={`${inter.className} bg-zinc-100 text-gray-800 flex flex-col min-h-screen`}>
+    <html lang="en" suppressHydrationWarning>
+      <body 
+        className={`${inter.className} bg-zinc-100 text-gray-800 flex flex-col min-h-screen`}
+        suppressHydrationWarning
+      >
         <ClientLayout>
           {children}
         </ClientLayout>

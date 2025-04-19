@@ -1,0 +1,86 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Function to check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Function to check if user is an admin
+    function isAdmin() {
+      return isAuthenticated() && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    // Function to check if user is owner of the document
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    // Default deny all access
+    match /{document=**} {
+      allow read, write: if false;
+    }
+    
+    // Users collection - TEMPORARILY ALLOW ALL WRITES FOR ADMIN SETUP
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if isAuthenticated() && request.auth.uid == userId;
+      // Temporarily allow all authenticated users to update any user document
+      allow update: if isAuthenticated(); // TEMPORARY: CHANGE BACK TO: isOwner(userId) || isAdmin();
+      allow delete: if isAdmin();
+      
+      // User's private data subcollection
+      match /private/{document} {
+        allow read, write: if isOwner(userId) || isAdmin();
+      }
+    }
+    
+    // QR Codes collection
+    match /qrcodes/{codeId} {
+      allow read: if resource.data.public == true || 
+                   (isAuthenticated() && (resource.data.ownerId == request.auth.uid || isAdmin()));
+      allow create: if isAuthenticated();
+      allow update, delete: if isAuthenticated() && 
+                            (resource.data.ownerId == request.auth.uid || isAdmin());
+      
+      // QR code scans subcollection
+      match /scans/{scanId} {
+        allow read: if isAuthenticated() && 
+                     (get(/databases/$(database)/documents/qrcodes/$(codeId)).data.ownerId == request.auth.uid || 
+                      isAdmin());
+        allow create: if true;  // Anonymous scan creation allowed
+        allow update, delete: if isAdmin();
+      }
+    }
+    
+    // Subscriptions collection
+    match /subscriptions/{subscriptionId} {
+      allow read: if isAuthenticated() && 
+                   (resource.data.userId == request.auth.uid || isAdmin());
+      allow create, update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+    
+    // Payments collection
+    match /payments/{paymentId} {
+      allow read: if isAuthenticated() && 
+                   (resource.data.userId == request.auth.uid || isAdmin());
+      allow create, update, delete: if isAdmin();
+    }
+    
+    // System settings - admin only
+    match /settings/{settingId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+    
+    // Public data - readable by all
+    match /public/{document} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+  }
+}

@@ -1,0 +1,5 @@
+[33m66d28a7923e47f288c58beef2d228924bf5d5484[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmaster[m[33m, [m[1;31morigin/master[m[33m)[m Fix Netlify build error: Update path to SubscriptionContext and fix incorrect property access
+[33m741475e823243265d0bef196abba77a864f8da83[m Fix infinite update loop in subscription components and improve Netlify deployment configuration
+[33m71a57d00029e71fdeb8c39a99e63b34c0dfb47e2[m Fix subscription permissions for Business tier PDF downloads in BulkSequenceGenerator
+[33m42ea8755f97b37bdf3c893ab0ddb90e747f29eac[m fix: Update dashboard to use FirebaseAuthContext
+[33mdf3b4e764661cb86f2b9ad3b19a00199c2f27346[m feat: Replace Clerk with Firebase Auth, fix context errors

@@ -10,36 +10,110 @@ import {
   deleteDoc, 
   updateDoc,
   Timestamp,
-  serverTimestamp
+  serverTimestamp,
+  limit
 } from 'firebase/firestore';
 import { db } from './firebase';
 import { User } from 'firebase/auth';
 
 // User-related database operations
-interface UserData {
+export interface UserData {
   id: string;
   email: string;
-  displayName: string;
-  subscriptionTier: 'free' | 'pro' | 'business';
+  displayName: string | null;
+  phoneNumber?: string;
+  subscriptionTier: string;
+  role: 'admin' | 'user';
   subscriptionEnd?: Timestamp;
   createdAt: Timestamp;
+  updatedAt: Timestamp;
+  authProvider?: 'email' | 'google' | 'phone';
+  emailVerified?: boolean;
+  phoneVerified?: boolean;
   featuresUsage: {
-    codesGenerated: number;
-    dailyCodesUsed: number;
-    lastDailyReset: Timestamp;
+    qrCodesGenerated: number;
+    barcodesGenerated: number;
+    bulkGenerations: number;
+    aiCustomizations: number;
   };
 }
 
-// Save or update user data in Firestore
-export const saveUserData = async (user: User) => {
+// Check if email or phone number is already in use
+export const checkEmailOrPhoneExists = async (email?: string, phoneNumber?: string): Promise<{ exists: boolean, field: string | null }> => {
   try {
-    await setDoc(doc(db, 'users', user.uid), {
-      uid: user.uid,
-      email: user.email,
-      displayName: user.displayName || '',
-      photoURL: user.photoURL || '',
-      createdAt: new Date().toISOString(),
-    }, { merge: true });
+    if (!email && !phoneNumber) {
+      return { exists: false, field: null };
+    }
+
+    const usersCollection = collection(db, "users");
+    
+    if (email) {
+      const emailQuery = query(
+        usersCollection,
+        where('email', '==', email),
+        limit(1)
+      );
+      
+      const emailSnapshot = await getDocs(emailQuery);
+      if (!emailSnapshot.empty) {
+        return { exists: true, field: 'email' };
+      }
+    }
+    
+    if (phoneNumber) {
+      const phoneQuery = query(
+        usersCollection,
+        where('phoneNumber', '==', phoneNumber),
+        limit(1)
+      );
+      
+      const phoneSnapshot = await getDocs(phoneQuery);
+      if (!phoneSnapshot.empty) {
+        return { exists: true, field: 'phoneNumber' };
+      }
+    }
+    
+    return { exists: false, field: null };
+  } catch (error) {
+    console.error("Error checking email or phone existence:", error);
+    // Don't assume it exists on error, but log it
+    return { exists: false, field: null };
+  }
+};
+
+// Save or update user data in Firestore
+export const saveUserData = async (user: User | UserData) => {
+  try {
+    // If we're passed a Firebase User object
+    if ('uid' in user) {
+      await setDoc(doc(db, 'users', user.uid), {
+        id: user.uid,
+        email: user.email,
+        displayName: user.displayName || '',
+        photoURL: user.photoURL || '',
+        phoneNumber: user.phoneNumber || '',
+        emailVerified: user.emailVerified || false,
+        phoneVerified: user.phoneNumber ? true : false, // Phone numbers from Firebase Auth are already verified
+        subscriptionTier: 'free',
+        role: 'user',
+        featuresUsage: {
+          qrCodesGenerated: 0,
+          barcodesGenerated: 0,
+          bulkGenerations: 0,
+          aiCustomizations: 0
+        },
+        createdAt: Timestamp.now(),
+        updatedAt: Timestamp.now()
+      }, { merge: true });
+    } else {
+      // If we're passed a UserData object directly
+      const { id, ...userData } = user;
+      await setDoc(doc(db, 'users', id), {
+        id,
+        ...userData,
+        updatedAt: Timestamp.now()
+      }, { merge: true });
+    }
     return true;
   } catch (error) {
     console.error('Error saving user data:', error);
@@ -64,6 +138,23 @@ export async function getUserData(userId: string) {
   }
 }
 
+// Alias getUserData as getUserById for backward compatibility
+export const getUserById = getUserData;
+
+// Get all users (requires appropriate Firestore rules for admin access)
+export const getAllUsers = async (): Promise<UserData[]> => {
+  const usersCollection = collection(db, "users");
+  const usersQuery = query(usersCollection);
+  const querySnapshot = await getDocs(usersQuery);
+  
+  const users: UserData[] = [];
+  querySnapshot.forEach((doc) => {
+    users.push(doc.data() as UserData);
+  });
+  
+  return users;
+};
+
 // QR Code and Barcode related database operations
 interface CodeData {
   id: string;
@@ -80,7 +171,7 @@ interface CodeData {
   };
   settings?: {
     foregroundColor?: string;
-    backgroundColor?: string;
+    backgroundColor?: string | string[];
     [key: string]: any;
   };
 }
@@ -192,4 +283,76 @@ export async function incrementCodeScan(codeId: string) {
     console.error("Error incrementing code scan:", error);
     throw error;
   }
-} 
+}
+
+// Update specific fields for a user
+export const updateUserData = async (userId: string, dataToUpdate: Partial<UserData>) => {
+  const userRef = doc(db, "users", userId);
+  // Add updatedAt timestamp automatically
+  const updateData = { ...dataToUpdate, updatedAt: Timestamp.now() }; 
+  await updateDoc(userRef, updateData);
+};
+
+// Payment Gateway Configuration
+export interface PaymentGatewayConfig {
+  stripe: {
+    enabled: boolean;
+    testMode: boolean;
+  };
+  paypal: {
+    enabled: boolean;
+    testMode: boolean;
+  };
+  flutterwave: {
+    enabled: boolean;
+    testMode: boolean;
+  };
+}
+
+// Default gateway configuration
+export const defaultGatewayConfig: PaymentGatewayConfig = {
+  stripe: {
+    enabled: false,
+    testMode: true
+  },
+  paypal: {
+    enabled: false,
+    testMode: true
+  },
+  flutterwave: {
+    enabled: false,
+    testMode: true
+  }
+};
+
+// Save payment gateway configuration
+export const saveGatewayConfig = async (config: PaymentGatewayConfig): Promise<boolean> => {
+  try {
+    await setDoc(doc(db, 'app_settings', 'payment_gateways'), {
+      ...config,
+      updatedAt: Timestamp.now()
+    });
+    return true;
+  } catch (error) {
+    console.error('Error saving gateway config:', error);
+    return false;
+  }
+};
+
+// Get payment gateway configuration
+export const getGatewayConfig = async (): Promise<PaymentGatewayConfig> => {
+  try {
+    const configDoc = await getDoc(doc(db, 'app_settings', 'payment_gateways'));
+    
+    if (configDoc.exists()) {
+      return configDoc.data() as PaymentGatewayConfig;
+    }
+    
+    // If no config exists, create one with defaults
+    await saveGatewayConfig(defaultGatewayConfig);
+    return defaultGatewayConfig;
+  } catch (error) {
+    console.error('Error getting gateway config:', error);
+    return defaultGatewayConfig;
+  }
+}; 

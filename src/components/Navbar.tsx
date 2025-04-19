@@ -6,6 +6,8 @@ import { Bars3Icon, XMarkIcon } from '@heroicons/react/24/outline';
 import { Button } from "@/components/ui/button";
 import { MoonIcon, SunIcon } from "@heroicons/react/24/outline";
 import { useTheme } from "next-themes";
+import { usePathname } from 'next/navigation';
+import { useAuth } from '@/context/FirebaseAuthContext';
 // Removed unused Lucide icons
 // import { Menu, X } from "lucide-react";
 
@@ -21,6 +23,8 @@ export default function Navbar() {
   const { theme, setTheme } = useTheme();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isClient, setIsClient] = useState(false);
+  const { user, loading, logout } = useAuth();
+  const pathname = usePathname();
 
   useEffect(() => {
     setIsClient(true);
@@ -28,6 +32,12 @@ export default function Navbar() {
   
   const toggleTheme = () => {
     setTheme(theme === "light" ? "dark" : "light");
+  };
+
+  const isActive = (path: string) => pathname === path;
+
+  const toggleMenu = () => {
+    setMobileMenuOpen(!mobileMenuOpen);
   };
 
   return (
@@ -46,15 +56,19 @@ export default function Navbar() {
           <button
             type="button"
             className="-m-2.5 inline-flex items-center justify-center rounded-md p-2.5 text-gray-700"
-            onClick={() => setMobileMenuOpen(true)}
+            onClick={toggleMenu}
           >
             <span className="sr-only">Open main menu</span>
-            <Bars3Icon className="h-6 w-6" aria-hidden="true" />
+            {!mobileMenuOpen ? (
+              <Bars3Icon className="h-6 w-6" aria-hidden="true" />
+            ) : (
+              <XMarkIcon className="h-6 w-6" aria-hidden="true" />
+            )}
           </button>
         </div>
         <div className="hidden lg:flex lg:gap-x-12">
           {navigation.map((item) => (
-            <Link key={item.name} href={item.href} className="text-sm font-semibold leading-6 text-gray-700 hover:text-primary transition-colors">
+            <Link key={item.name} href={item.href} className={`text-sm font-semibold leading-6 ${isActive(item.href) ? 'text-primary' : 'text-gray-700 hover:text-primary transition-colors'}`}>
               {item.name}
             </Link>
           ))}
@@ -66,18 +80,99 @@ export default function Navbar() {
           >
             Upgrade
           </Link>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={toggleTheme}
-            aria-label="Toggle theme"
-          >
-            {theme === "dark" ? (
-              <SunIcon className="h-5 w-5" />
+          <div className="hidden lg:flex lg:flex-1 lg:justify-end">
+            {loading ? (
+              <div className="h-5 w-5 border-t-2 border-primary rounded-full animate-spin"></div>
+            ) : user ? (
+              <div className="relative ml-3">
+                <div>
+                  <button
+                    type="button"
+                    className="flex text-sm rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
+                    id="user-menu-button"
+                    aria-expanded="false"
+                    aria-haspopup="true"
+                    onClick={toggleMenu}
+                  >
+                    <span className="sr-only">Open user menu</span>
+                    {user && 'photoURL' in user && user.photoURL ? (
+                      <img
+                        className="h-8 w-8 rounded-full"
+                        src={user.photoURL}
+                        alt={user.displayName || "User"}
+                      />
+                    ) : (
+                      <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center text-white">
+                        {user.displayName ? user.displayName.charAt(0).toUpperCase() : user.email?.charAt(0).toUpperCase()}
+                      </div>
+                    )}
+                  </button>
+                </div>
+                {mobileMenuOpen && (
+                  <div
+                    className="origin-top-right absolute right-0 mt-2 w-48 rounded-md shadow-lg py-1 bg-white ring-1 ring-black ring-opacity-5 focus:outline-none"
+                    role="menu"
+                    aria-orientation="vertical"
+                    aria-labelledby="user-menu-button"
+                    tabIndex={-1}
+                  >
+                    <Link href="/profile" 
+                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" 
+                      role="menuitem">
+                      Your Profile
+                    </Link>
+                    <Link href="/dashboard" 
+                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" 
+                      role="menuitem">
+                      Dashboard
+                    </Link>
+                    {user && 'role' in user && user.role === 'admin' && (
+                      <Link href="/admin" 
+                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" 
+                        role="menuitem">
+                        Admin Panel
+                      </Link>
+                    )}
+                    {user && 'role' in user && user.role === 'admin' && (
+                      <Link href="/admin?public=true" 
+                        className="block px-4 py-2 text-sm text-indigo-600 hover:bg-gray-100" 
+                        role="menuitem">
+                        Admin Panel (Public)
+                      </Link>
+                    )}
+                    <button
+                      className="block w-full text-left px-4 py-2 text-sm text-red-700 hover:bg-gray-100"
+                      role="menuitem"
+                      onClick={() => {
+                        setMobileMenuOpen(false);
+                        logout();
+                      }}
+                    >
+                      Sign out
+                    </button>
+                  </div>
+                )}
+              </div>
             ) : (
-              <MoonIcon className="h-5 w-5" />
+              <div className="flex space-x-4">
+                <Link href="/login" 
+                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-primary bg-white hover:bg-gray-50">
+                  Sign in
+                </Link>
+                <Link href="/signup" 
+                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-primary hover:bg-primary-dark">
+                  Sign up
+                </Link>
+              </div>
             )}
-          </Button>
+            <button onClick={toggleTheme} className="ml-4">
+              {theme === "dark" ? (
+                <SunIcon className="h-6 w-6" />
+              ) : (
+                <MoonIcon className="h-6 w-6" />
+              )}
+            </button>
+          </div>
         </div>
       </nav>
       {isClient && mobileMenuOpen && (
@@ -95,7 +190,7 @@ export default function Navbar() {
               <button
                 type="button"
                 className="-m-2.5 rounded-md p-2.5 text-gray-700"
-                onClick={() => setMobileMenuOpen(false)}
+                onClick={toggleMenu}
               >
                 <span className="sr-only">Close menu</span>
                 <XMarkIcon className="h-6 w-6" aria-hidden="true" />
@@ -121,24 +216,82 @@ export default function Navbar() {
                   >
                     Upgrade
                   </Link>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={toggleTheme}
-                    className="flex w-full items-center"
-                  >
-                    {theme === "dark" ? (
-                      <>
-                        <SunIcon className="h-5 w-5 mr-2" />
-                        <span>Light Mode</span>
-                      </>
-                    ) : (
-                      <>
-                        <MoonIcon className="h-5 w-5 mr-2" />
-                        <span>Dark Mode</span>
-                      </>
-                    )}
-                  </Button>
+                  {user ? (
+                    <div className="py-6 border-t border-gray-200">
+                      <div className="flex items-center px-5">
+                        <div className="flex-shrink-0">
+                          {user && 'photoURL' in user && user.photoURL ? (
+                            <img
+                              className="h-10 w-10 rounded-full"
+                              src={user.photoURL}
+                              alt="User"
+                            />
+                          ) : (
+                            <div className="h-10 w-10 rounded-full bg-primary flex items-center justify-center text-white">
+                              {user.displayName ? user.displayName.charAt(0).toUpperCase() : user.email?.charAt(0).toUpperCase()}
+                            </div>
+                          )}
+                        </div>
+                        <div className="ml-3">
+                          <div className="text-base font-medium text-gray-800">{user.displayName || 'User'}</div>
+                          <div className="text-sm font-medium text-gray-500">{user.email}</div>
+                        </div>
+                      </div>
+                      <div className="mt-3 space-y-1 px-2">
+                        <Link
+                          href="/profile"
+                          className="block px-3 py-2 rounded-md text-base font-medium text-gray-900 hover:bg-gray-100"
+                        >
+                          Your Profile
+                        </Link>
+                        <Link
+                          href="/dashboard"
+                          className="block px-3 py-2 rounded-md text-base font-medium text-gray-900 hover:bg-gray-100"
+                        >
+                          Dashboard
+                        </Link>
+                        {user && 'role' in user && user.role === 'admin' && (
+                          <Link
+                            href="/admin"
+                            className="block px-3 py-2 rounded-md text-base font-medium text-gray-900 hover:bg-gray-100"
+                          >
+                            Admin Panel
+                          </Link>
+                        )}
+                        {user && 'role' in user && user.role === 'admin' && (
+                          <Link
+                            href="/admin?public=true"
+                            className="block px-3 py-2 rounded-md text-base font-medium text-indigo-600 hover:bg-gray-100"
+                          >
+                            Admin Panel (Public)
+                          </Link>
+                        )}
+                        <button
+                          onClick={() => logout()}
+                          className="block w-full text-left px-3 py-2 rounded-md text-base font-medium text-red-600 hover:bg-gray-100"
+                        >
+                          Sign out
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="py-6 px-5 border-t border-gray-200">
+                      <div className="mt-6 grid grid-cols-2 gap-4">
+                        <Link
+                          href="/login"
+                          className="text-center rounded-md border border-transparent bg-white py-2 px-4 text-base font-medium text-primary shadow-sm hover:bg-gray-50"
+                        >
+                          Sign in
+                        </Link>
+                        <Link
+                          href="/signup"
+                          className="text-center rounded-md border border-transparent bg-primary py-2 px-4 text-base font-medium text-white shadow-sm hover:bg-primary-dark"
+                        >
+                          Sign up
+                        </Link>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

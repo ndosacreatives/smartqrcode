@@ -9,7 +9,11 @@ export type FeatureType =
   | 'aiCustomizations'
   | 'noWatermark'
   | 'svgDownload'
-  | 'pdfDownload';
+  | 'pdfDownload'
+  | 'qrCodeTracking'
+  | 'enhancedBarcodes'
+  | 'fileUploads'
+  | 'analytics';
 
 // Define limits for each subscription tier
 export const subscriptionLimits = {
@@ -78,7 +82,11 @@ export const featureAccess = {
     aiCustomizations: false,
     noWatermark: false,
     svgDownload: false,
-    pdfDownload: false
+    pdfDownload: false,
+    qrCodeTracking: false,
+    enhancedBarcodes: false,
+    fileUploads: false,
+    analytics: false
   },
   pro: {
     qrCodesGenerated: true,
@@ -87,7 +95,11 @@ export const featureAccess = {
     aiCustomizations: true,
     noWatermark: true,
     svgDownload: true,
-    pdfDownload: true
+    pdfDownload: true,
+    qrCodeTracking: true,
+    enhancedBarcodes: true,
+    fileUploads: true,
+    analytics: true
   },
   business: {
     qrCodesGenerated: true,
@@ -96,7 +108,11 @@ export const featureAccess = {
     aiCustomizations: true,
     noWatermark: true,
     svgDownload: true,
-    pdfDownload: true
+    pdfDownload: true,
+    qrCodeTracking: true,
+    enhancedBarcodes: true,
+    fileUploads: true,
+    analytics: true
   },
 };
 

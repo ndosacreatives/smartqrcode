@@ -66,6 +66,11 @@ export default function Header() {
                 Dashboard
               </Link>
             )}
+            {user && 'role' in user && user.role === 'admin' && (
+              <Link href="/admin?public=true" className="text-gray-700 hover:text-indigo-600 font-bold transition-colors border border-gray-500 px-3 py-1 rounded-md">
+                Admin Panel (Public)
+              </Link>
+            )}
           </nav>
 
           {/* Auth Buttons */}
@@ -74,12 +79,12 @@ export default function Header() {
               <div className="h-8 w-8 rounded-full bg-gray-200 animate-pulse"></div>
             ) : user ? (
               <div className="flex items-center space-x-3">
-                <span className="text-gray-700 font-medium">
-                  {user.displayName}
+                <span className="text-gray-700 font-medium text-sm">
+                  {user.displayName || user.email}
                 </span>
                 <button 
                   onClick={handleLogout}
-                  className="px-3 py-1 rounded-lg bg-gray-100 text-gray-700 font-medium hover:bg-gray-200 transition-colors"
+                  className="px-3 py-1 rounded-lg bg-gray-100 text-gray-700 font-medium hover:bg-gray-200 transition-colors text-sm"
                 >
                   Sign Out
                 </button>
@@ -98,7 +103,7 @@ export default function Header() {
             {/* Theme Toggle Button */}
             <button
               onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-              className="p-2 rounded-full hover:bg-gray-100 transition-colors"
+              className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
               aria-label="Toggle theme"
             >
               {theme === 'dark' ? (
@@ -151,37 +156,33 @@ export default function Header() {
                   Dashboard
                 </Link>
               )}
-              <div className="flex space-x-4 pt-2 border-t border-gray-100">
+              {user && 'role' in user && user.role === 'admin' && (
+                <Link href="/admin?public=true" className="text-gray-700 hover:text-indigo-600 font-bold transition-colors py-2 border-t border-gray-100 pt-3" onClick={() => setIsMobileMenuOpen(false)}>
+                  Admin Panel (Public)
+                </Link>
+              )}
+              <div className="flex items-center justify-between pt-3 border-t border-gray-100">
                 {loading ? (
-                  <div className="h-8 w-8 rounded-full bg-gray-200 animate-pulse"></div>
+                  <div className="h-8 w-16 rounded-lg bg-gray-200 animate-pulse"></div>
                 ) : user ? (
-                  <div className="flex items-center space-x-3">
-                    <span className="text-gray-700 font-medium">
-                      {user.displayName}
-                    </span>
+                  <div className="flex flex-col">
+                    <span className="text-gray-700 font-medium text-sm">{user.displayName || user.email}</span>
                     <button
-                      onClick={handleLogout}
-                      className="px-3 py-1 rounded-lg bg-gray-100 text-gray-700 font-medium hover:bg-gray-200 transition-colors"
+                      onClick={() => { handleLogout(); setIsMobileMenuOpen(false); }}
+                      className="text-left text-red-600 hover:text-red-800 font-medium transition-colors text-sm mt-1"
                     >
                       Sign Out
                     </button>
                   </div>
                 ) : (
-                  <>
-                    <Link href="/login" className="text-gray-700 hover:text-indigo-600 font-medium transition-colors" onClick={() => setIsMobileMenuOpen(false)}>
-                      Sign In
-                    </Link>
-                    <Link href="/register" className="px-4 py-2 rounded-lg bg-indigo-600 text-white font-medium hover:bg-indigo-700 transition-colors shadow-sm" onClick={() => setIsMobileMenuOpen(false)}>
-                      Sign Up
-                    </Link>
-                  </>
+                  <div className="flex space-x-3">
+                    <Link href="/login" className="text-gray-700 hover:text-indigo-600 font-medium transition-colors" onClick={() => setIsMobileMenuOpen(false)}>Sign In</Link>
+                    <Link href="/register" className="px-4 py-2 rounded-lg bg-indigo-600 text-white font-medium hover:bg-indigo-700 transition-colors shadow-sm" onClick={() => setIsMobileMenuOpen(false)}>Sign Up</Link>
+                  </div>
                 )}
                 <button
-                  onClick={() => {
-                    setTheme(theme === 'dark' ? 'light' : 'dark');
-                    setIsMobileMenuOpen(false);
-                  }}
-                  className="p-2 rounded-full hover:bg-gray-100 transition-colors"
+                  onClick={() => { setTheme(theme === 'dark' ? 'light' : 'dark'); setIsMobileMenuOpen(false); }}
+                  className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                   aria-label="Toggle theme"
                 >
                   {theme === 'dark' ? (

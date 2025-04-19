@@ -6,24 +6,18 @@ import JsBarcode from "jsbarcode";
 import JSZip from "jszip";
 import { saveAs } from "file-saver";
 import jsPDF from 'jspdf';
-import { useSubscription } from "../hooks/useSubscription";
+import { useSubscription } from "@/hooks/useSubscription";
 import { useTrackUsage } from "@/hooks/useTrackUsage";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 
 export default function BulkSequenceGenerator() {
   const router = useRouter();
-  const { 
-    subscriptionTier,
-    loading: subscriptionLoading,
-    error: subscriptionError
-  } = useSubscription();
+  const subscriptionData = useSubscription();
+  const subscriptionTier = subscriptionData?.subscriptionTier || 'free';
   
   // Use tracking hook
   const {
     trackUsage,
-    isTracking,
-    error: trackingError,
     canUseFeature,
     getRemainingUsage,
     isWithinUsageLimit
@@ -42,49 +36,29 @@ export default function BulkSequenceGenerator() {
   const [barcodeType, setBarcodeType] = useState<string>("CODE128");
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
   const [progress, setProgress] = useState<number>(0);
-  const [downloadLink, setDownloadLink] = useState<string>("");
   const [outputType, setOutputType] = useState<'zip' | 'pdf' | 'pdf-tile'>('zip');
 
-  // PDF Layout State
-  const [paperSize, setPaperSize] = useState<string>('a4'); // a4, a5, a3, custom
-  const [orientation, setOrientation] = useState<'p' | 'l'>('p'); // portrait, landscape
-  const [customWidth, setCustomWidth] = useState<number>(210); // mm
-  const [customHeight, setCustomHeight] = useState<number>(297); // mm
-  const [columns, setColumns] = useState<number>(4);
-  const [rows, setRows] = useState<number>(10);
-  const [marginTop, setMarginTop] = useState<number>(10); // mm
-  const [marginLeft, setMarginLeft] = useState<number>(10); // mm
-  const [spacing, setSpacing] = useState<number>(5); // mm
-
   // Tiling State (for PDF Tile download)
-  const [tileColumns, setTileColumns] = useState<number>(4); // Changed default
-  const [tileRows, setTileRows] = useState<number>(10);
-  const [tileSpacing, setTileSpacing] = useState<number>(5);
-  const [tileSpacingUnit, setTileSpacingUnit] = useState<'mm' | 'cm'>('mm');
-  const [addOutline, setAddOutline] = useState<boolean>(false); // Option to add border
-  const [displayGridWidth, setDisplayGridWidth] = useState<string>("0");
-  const [displayGridHeight, setDisplayGridHeight] = useState<string>("0");
-
-  // Add state for preview code images
-  const [previewCodeImages, setPreviewCodeImages] = useState<(string | null)[]>([]);
+  const [tileColumns, /* setTileColumns */] = useState<number>(4);
+  const [tileRows, /* setTileRows */] = useState<number>(10);
+  const [tileSpacing, /* setTileSpacing */] = useState<number>(5);
+  const [tileSpacingUnit, /* setTileSpacingUnit */] = useState<'mm' | 'cm'>('mm');
+  const [addOutline, /* setAddOutline */] = useState<boolean>(false);
 
   // Add a state variable for barcode height
-  const [barcodeHeight, setBarcodeHeight] = useState<number>(4); // Default to 4
+  const [barcodeHeight, setBarcodeHeight] = useState<number>(4);
 
   // Add a state variable for barcode height unit
-  const [barcodeHeightUnit, setBarcodeHeightUnit] = useState<'px' | 'cm' | 'mm'>('cm'); // Default to cm
+  const [barcodeHeightUnit, setBarcodeHeightUnit] = useState<'px' | 'cm' | 'mm'>('cm');
 
   // Add state for generated codes
   const [codes, setCodes] = useState<string[]>([]);
   
   // Add codesInput state variable
-  const [codesInput, setCodesInput] = useState<boolean>(true);
+  const [codesInput, /* setCodesInput */] = useState<boolean>(true);
 
   // Add missing state variables for download options
   const [downloadFormat, setDownloadFormat] = useState<string>("zip-jpg");
-  const [layout, setLayout] = useState<string>("portrait");
-  const [foregroundColor, setForegroundColor] = useState<string>("#000000");
-  const [backgroundColor, setBackgroundColor] = useState<string>("#FFFFFF");
 
   const barcodeFormats = [
     { value: "CODE128", label: "Code 128 (default)" },
@@ -164,7 +138,6 @@ export default function BulkSequenceGenerator() {
     
     setIsGenerating(true);
     setProgress(0);
-    setDownloadLink("");
     
     try {
       // Track usage for bulk generation
@@ -217,46 +190,27 @@ export default function BulkSequenceGenerator() {
         
         const content = await zip.generateAsync({ type: "blob" });
         saveAs(content, `${format === "qrcode" ? "qrcodes" : "barcodes"}-bulk.zip`);
-        // Optionally set a download link if needed
-        // const url = URL.createObjectURL(content);
-        // setDownloadLink(url);
 
       } else if (outputType === 'pdf') {
         // --- PDF Generation Logic (Single code per page - maybe adapt later?) --- 
-        let pdfWidth = customWidth;
-        let pdfHeight = customHeight;
-        let pdfFormat: string | number[] = paperSize; // Local variable for jsPDF format
-        
-        if (paperSize !== 'custom') {
-          const standardSizes: { [key: string]: [number, number] } = { a4: [210, 297], a5: [148, 210], a3: [297, 420] };
-          if (paperSize in standardSizes) {
-            pdfWidth = standardSizes[paperSize][0];
-            pdfHeight = standardSizes[paperSize][1];
-            pdfFormat = paperSize; // Use the string key ('a4', 'a5', 'a3')
-          } else {
-            console.error("Invalid standard paper size selected, defaulting to A4");
-            pdfWidth = 210;
-            pdfHeight = 297;
-            pdfFormat = 'a4'; // Default format
-          }
-        } else {
-           pdfFormat = [pdfWidth, pdfHeight]; // Use custom dimensions array
-        }
+        const pdfWidth = 210;
+        const pdfHeight = 297;
+        const pdfFormat: string | number[] = 'a4'; // Local variable for jsPDF format
         
         const pdf = new jsPDF({
-          orientation: orientation,
+          orientation: 'p',
           unit: 'mm',
           format: pdfFormat // Use the determined format
         });
         
-        const codesPerPage = columns * rows;
+        const codesPerPage = 4 * 10;
         const totalPages = Math.ceil(codes.length / codesPerPage);
 
-        const usableWidth = (orientation === 'l' ? pdfHeight : pdfWidth) - marginLeft * 2;
-        const usableHeight = (orientation === 'l' ? pdfWidth : pdfHeight) - marginTop * 2;
+        const usableWidth = pdfWidth - 20;
+        const usableHeight = pdfHeight - 20;
 
-        const cellWidth = (usableWidth - (columns - 1) * spacing) / columns;
-        const cellHeight = (usableHeight - (rows - 1) * spacing) / rows;
+        const cellWidth = (usableWidth - (4 - 1) * 5) / 4;
+        const cellHeight = (usableHeight - (10 - 1) * 5) / 10;
         
         // Determine image dimensions (adjust as needed)
         const imageWidthMM = Math.min(cellWidth, 50); // Example max width
@@ -268,14 +222,14 @@ export default function BulkSequenceGenerator() {
             pdf.addPage();
           }
           
-          for (let r = 0; r < rows; r++) {
-            for (let c = 0; c < columns; c++) {
+          for (let r = 0; r < 10; r++) {
+            for (let c = 0; c < 4; c++) {
               if (codeIndex >= codes.length) break;
               
               const code = codes[codeIndex];
               
-              const xPos = marginLeft + c * (cellWidth + spacing);
-              const yPos = marginTop + r * (cellHeight + spacing);
+              const xPos = 10 + c * (cellWidth + 5);
+              const yPos = 10 + r * (cellHeight + 5);
               
               const canvas = document.createElement("canvas");
               try {
@@ -487,7 +441,6 @@ export default function BulkSequenceGenerator() {
     const generatePreviewImages = async () => {
       const numPreviewCodes = Math.min(count, tileColumns * tileRows);
       if (numPreviewCodes <= 0) {
-        setPreviewCodeImages([]);
         return;
       }
 
@@ -516,7 +469,6 @@ export default function BulkSequenceGenerator() {
           imageDataUrls.push(null); // Indicate error for this code
         }
       }
-      setPreviewCodeImages(imageDataUrls);
     };
 
     // Only run if pdf-tile output is selected
@@ -552,11 +504,7 @@ export default function BulkSequenceGenerator() {
       
       const height = (tileRows * calculatedTileHeightMM) + (Math.max(0, tileRows - 1) * spacingVal);
       
-      setDisplayGridWidth(width.toFixed(1));
-      setDisplayGridHeight(height.toFixed(1));
     } else {
-      setDisplayGridWidth("0");
-      setDisplayGridHeight("0");
     }
     // Dependencies for grid display calculation
   }, [outputType, tileColumns, tileRows, tileSpacing, tileSpacingUnit, format, barcodeType]); 
@@ -606,10 +554,6 @@ export default function BulkSequenceGenerator() {
             await qrcode.toCanvas(canvas, code, {
               width: 150,
               margin: 1,
-              color: {
-                dark: foregroundColor,
-                light: backgroundColor
-              }
             });
           } else {
             JsBarcode(canvas, code, {
@@ -617,8 +561,8 @@ export default function BulkSequenceGenerator() {
               width: 1.5,
               height: 50,
               displayValue: true,
-              background: backgroundColor,
-              lineColor: foregroundColor
+              background: "#FFFFFF",
+              lineColor: "#000000"
             });
           }
           
@@ -663,7 +607,7 @@ export default function BulkSequenceGenerator() {
         if (downloadFormat === "pdf") {
           // Generate PDF
           const pdf = new jsPDF({
-            orientation: layout === "portrait" ? "portrait" : "landscape",
+            orientation: 'portrait',
             unit: "mm"
           });
           
@@ -685,10 +629,6 @@ export default function BulkSequenceGenerator() {
               await qrcode.toCanvas(canvas, code, {
                 width: 400,
                 margin: 2,
-                color: {
-                  dark: foregroundColor,
-                  light: backgroundColor
-                }
               });
             } else {
               JsBarcode(canvas, code, {
@@ -696,8 +636,8 @@ export default function BulkSequenceGenerator() {
                 width: 2,
                 height: 100,
                 displayValue: true,
-                background: backgroundColor,
-                lineColor: foregroundColor
+                background: "#FFFFFF",
+                lineColor: "#000000"
               });
             }
             
@@ -710,10 +650,6 @@ export default function BulkSequenceGenerator() {
                   type: "svg",
                   width: 400,
                   margin: 2,
-                  color: {
-                    dark: foregroundColor,
-                    light: backgroundColor
-                  }
                 });
                 zip.file(`code-${i+1}.svg`, svgString);
               } else {
@@ -724,8 +660,8 @@ export default function BulkSequenceGenerator() {
                   width: 2,
                   height: 100,
                   displayValue: true,
-                  background: backgroundColor,
-                  lineColor: foregroundColor,
+                  background: "#FFFFFF",
+                  lineColor: "#000000",
                 });
                 const svgString = svgContainer.innerHTML;
                 zip.file(`code-${i+1}.svg`, svgString);
