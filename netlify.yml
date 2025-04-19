@@ -1,6 +1,0 @@
-plugins:
-  - package: '@netlify/plugin-lighthouse'
-
-# Explicitly prevent the Next.js plugin from running
-disable_plugins:
-  - '@netlify/plugin-nextjs' 
