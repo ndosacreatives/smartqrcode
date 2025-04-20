@@ -1,47 +1,57 @@
 'use client';
 
 import { initializeApp, getApps, FirebaseApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
-import { getStorage } from 'firebase/storage';
+import { getAuth, Auth } from 'firebase/auth';
+import { getFirestore, Firestore } from 'firebase/firestore';
+import { getStorage, FirebaseStorage } from 'firebase/storage';
 import { getClientFirebaseConfig } from '@/lib/credentials';
 
 // Initialize Firebase with environment variables
 let firebaseApp: FirebaseApp | undefined;
 
-// Get Firebase configuration from environment variables
-const config = getClientFirebaseConfig();
-
 // Check if we're in the browser
 const isBrowser = typeof window !== 'undefined';
 
-// Initialize Firebase if in browser
+// Explicit typed null values for services
+let auth: Auth | null = null;
+let db: Firestore | null = null;
+let storage: FirebaseStorage | null = null;
+
+// Initialize Firebase only on the client side
 if (isBrowser) {
-  if (getApps().length === 0) {
+  try {
+    // Get Firebase configuration
+    const config = getClientFirebaseConfig();
+    
     // Check if essential config values are present
     const missingConfig = Object.entries(config)
       .filter(([key, value]) => key !== 'measurementId' && !value) // measurementId is optional
       .map(([key]) => key);
     
     if (missingConfig.length === 0) {
-      try {
+      // Use existing app instance if available
+      if (getApps().length > 0) {
+        firebaseApp = getApps()[0];
+        console.log('Using existing Firebase app');
+      } else {
+        // Otherwise initialize a new app
         firebaseApp = initializeApp(config);
         console.log('Firebase initialized successfully');
-      } catch (error) {
-        console.error('Error initializing Firebase:', error);
+      }
+      
+      // If we have a valid app, initialize services
+      if (firebaseApp) {
+        auth = getAuth(firebaseApp);
+        db = getFirestore(firebaseApp);
+        storage = getStorage(firebaseApp);
       }
     } else {
       console.error(`Missing Firebase config values: ${missingConfig.join(', ')}`);
     }
-  } else {
-    firebaseApp = getApps()[0];
+  } catch (error) {
+    console.error('Error initializing Firebase:', error);
   }
 }
 
-// Export services - pass the firebaseApp to service initializers
-export const auth = isBrowser && firebaseApp ? getAuth(firebaseApp) : null;
-export const db = isBrowser && firebaseApp ? getFirestore(firebaseApp) : null;
-export const storage = isBrowser && firebaseApp ? getStorage(firebaseApp) : null;
-
-// In React components, always check if these are null before using
-export { firebaseApp as app }; 
+// Export the initialized services and app
+export { auth, db, storage, firebaseApp as app }; 
