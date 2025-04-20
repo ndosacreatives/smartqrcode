@@ -7,6 +7,9 @@ export const metadata: Metadata = {
   description: 'Admin panel for managing Smart QR Code Generator',
 };
 
+// Add dynamic export to prevent static generation
+export const dynamic = 'force-dynamic';
+
 export default function AdminPageLayout({
   children,
 }: {

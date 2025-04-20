@@ -6,6 +6,9 @@ import { useAuth } from '@/context/FirebaseAuthContext';
 import Link from 'next/link';
 import { signInWithEmailAndPassword, getAuth } from 'firebase/auth';
 
+// Add dynamic export to prevent static generation
+export const dynamic = 'force-dynamic';
+
 export default function AdminLogin() {
   const router = useRouter();
   const { user, loading } = useAuth();
