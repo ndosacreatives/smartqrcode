@@ -6,18 +6,6 @@ import { Box, Heading, Text, Button, Input, VStack, HStack, useToast, Spinner, I
 import { FiDownload, FiEye, FiLock } from 'react-icons/fi';
 import { verifySharePassword, recordShareAccess, isShareExpired } from '@/lib/fileSharingService';
 
-// This generates a dummy shared ID for static build
-// In production, the actual IDs will come from the database/API at runtime
-export async function generateStaticParams() {
-  // Return an empty array during static build
-  // At runtime, the actual IDs will be used from the database
-  return [{ id: 'placeholder' }];
-}
-
-// This is necessary to tell Next.js that this is a dynamic route
-// that should be generated at runtime, despite having static placeholder
-export const dynamicParams = true;
-
 interface SharedFilePageProps {
   params: {
     id: string;
