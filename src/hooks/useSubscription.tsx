@@ -8,7 +8,7 @@ import {
   subscriptionLimits,
   featureAccess
 } from '../lib/subscription';
-import { db } from '../lib/firebase';
+import { db } from '@/lib/firebase/config';
 import { doc, getDoc, FirestoreError } from 'firebase/firestore';
 import { FirebaseError } from 'firebase/app';
 

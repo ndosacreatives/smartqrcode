@@ -1,4 +1,4 @@
-import { db } from '@/lib/firebase';
+import { db } from '@/lib/firebase/config';
 import { collection, addDoc, getDocs, getDoc, doc, updateDoc, query, where, deleteDoc, serverTimestamp, orderBy, limit } from 'firebase/firestore';
 import { BarcodeData } from '@/lib/types';
 

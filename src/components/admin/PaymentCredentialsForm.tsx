@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/FirebaseAuthContext';
 import { PaymentGatewayConfig, defaultGatewayConfig, getGatewayConfig, saveGatewayConfig } from '@/lib/firestore';
+import { db } from '@/lib/firebase/config';
 
 interface PaymentCredentials {
   // Stripe

@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { doc, setDoc, getDoc, Timestamp } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
-import { db, auth } from '@/lib/firebase-simple';
+import { app, db, auth } from '@/lib/firebase/config';
 
 export default function SimpleAdminSetupPage() {
   const [userId, setUserId] = useState<string | null>(null);

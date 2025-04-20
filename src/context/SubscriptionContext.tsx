@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useAuth } from '@/context/FirebaseAuthContext';
-import { db } from '@/lib/firebase';
+import { db } from '@/lib/firebase/config';
 import { doc, onSnapshot, Unsubscribe } from 'firebase/firestore';
 import { 
   FeatureType, 

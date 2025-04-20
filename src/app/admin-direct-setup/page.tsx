@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { doc, setDoc, Timestamp } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { db } from '@/lib/firebase/config';
 
 export default function AdminDirectSetupPage() {
   const [userId, setUserId] = useState('');

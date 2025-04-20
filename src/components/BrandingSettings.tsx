@@ -5,7 +5,7 @@ import React, { useState, useEffect } from "react";
 import { useSubscription } from "@/hooks/useSubscription"; // Import the actual hook
 import { useRouter } from "next/navigation";
 import { useAuth } from '@/context/FirebaseAuthContext';
-import { db, storage } from "@/lib/firebase"; // Assuming firebase config is exported from here
+import { db, storage } from "@/lib/firebase/config"; // Firebase config
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 

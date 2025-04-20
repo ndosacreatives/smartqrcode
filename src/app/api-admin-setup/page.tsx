@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { onAuthStateChanged, getAuth } from 'firebase/auth';
-import { app } from '@/lib/firebase-simple';
+import { app } from '@/lib/firebase/config';
 
 export default function ApiAdminSetupPage() {
   const [userId, setUserId] = useState<string | null>(null);

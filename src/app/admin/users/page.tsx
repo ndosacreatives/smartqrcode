@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 // import { updateUserData } from "@/lib/firestore";
-import { db } from "@/lib/firebase";
+import { db } from "@/lib/firebase/config";
 import {
   collection,
   getDocs,

@@ -13,7 +13,7 @@ import {
   serverTimestamp,
   limit
 } from 'firebase/firestore';
-import { db } from './firebase';
+import { db } from './firebase/config';
 import { User } from 'firebase/auth';
 
 // User-related database operations

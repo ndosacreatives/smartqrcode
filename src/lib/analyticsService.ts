@@ -1,4 +1,4 @@
-import { db } from '@/lib/firebase';
+import { db } from '@/lib/firebase/config';
 import { collection, getDocs, getDoc, doc, query, where, orderBy, limit, startAfter, Timestamp } from 'firebase/firestore';
 import { ScanLocation, QRCodeData, AnalyticsData as AnalyticsDataFromTypes } from '@/lib/types';
 

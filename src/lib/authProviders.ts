@@ -5,7 +5,7 @@ import {
   TwitterAuthProvider, 
   getAuth 
 } from "firebase/auth";
-import { app } from "./firebase";
+import { app } from "./firebase/config";
 
 // Initialize Firebase Authentication
 export const auth = getAuth(app);

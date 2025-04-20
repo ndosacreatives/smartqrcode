@@ -5,7 +5,7 @@ import {
   User, 
   createUserWithEmailAndPassword, 
   signInWithEmailAndPassword, 
-  signOut as firebaseSignOut,
+  signOut,
   onAuthStateChanged,
   sendPasswordResetEmail,
   updateProfile,
@@ -19,10 +19,12 @@ import {
   ConfirmationResult,
   sendEmailVerification,
   applyActionCode,
-  deleteUser
+  deleteUser,
+  RecaptchaVerifier,
+  getAuth
 } from 'firebase/auth';
 import { doc, getDoc, setDoc, updateDoc, Timestamp, deleteDoc } from 'firebase/firestore';
-import { auth, db, getRecaptchaVerifier } from '@/lib/firebase';
+import { app, auth, db } from '@/lib/firebase/config';
 import { googleProvider, isProviderEnabled } from '@/lib/authProviders';
 import { saveUserData, getUserData, UserData, checkEmailOrPhoneExists } from '@/lib/firestore';
 import { useRouter } from 'next/navigation';
@@ -37,7 +39,7 @@ declare global {
 }
 
 export interface AuthContextType {
-  user: User | UserData | null;
+  user: User | null;
   loading: boolean;
   error: string | null;
   signUp: (email: string, password: string, displayName: string) => Promise<boolean>;
@@ -362,7 +364,7 @@ export function FirebaseAuthProvider({ children }: { children: ReactNode }) {
     setLoading(true);
     
     try {
-      await firebaseSignOut(auth);
+      await signOut(auth);
       router.push('/login');
       return true;
     } catch (err) {
@@ -541,14 +543,7 @@ export function FirebaseAuthProvider({ children }: { children: ReactNode }) {
   // Helper method to check if email is verified
   const isEmailVerified = (): boolean => {
     if (!user) return false;
-    
-    // If it's a Firebase User object
-    if ('emailVerified' in user) {
-      return user.emailVerified;
-    }
-    
-    // If it's our UserData type
-    return Boolean(user.emailVerified);
+    return user.emailVerified || false;
   };
 
   // Delete the current user's account
@@ -651,6 +646,16 @@ export function FirebaseAuthProvider({ children }: { children: ReactNode }) {
       setLoading(false);
       return false;
     }
+  };
+
+  // Update the getRecaptchaVerifier function
+  const getRecaptchaVerifier = (elementId: string) => {
+    return new RecaptchaVerifier(auth, elementId, {
+      size: 'invisible',
+      callback: () => {
+        // reCAPTCHA solved, allow signInWithPhoneNumber.
+      }
+    });
   };
 
   const value = useMemo(() => ({
