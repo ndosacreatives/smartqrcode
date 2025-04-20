@@ -4,14 +4,22 @@ import React, { useState, useEffect } from 'react';
 import { auth } from '@/lib/firebase/config';
 import { AVAILABLE_PROVIDERS } from '@/lib/authProviders';
 import { useAuth } from '@/context/FirebaseAuthContext';
+import { isFirebaseAvailable } from '@/lib/firebase/config';
 
 export default function DebugAuthPage() {
   const [firebaseConfig, setFirebaseConfig] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
   const [authProviders, setAuthProviders] = useState<any[]>([]);
   const { user, loading } = useAuth();
+  const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
+    setIsClient(true);
+  }, []);
+
+  useEffect(() => {
+    if (!isClient || !isFirebaseAvailable()) return;
+
     try {
       // Get Firebase config from the auth object
       const config = {
@@ -32,7 +40,11 @@ export default function DebugAuthPage() {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error occurred');
     }
-  }, []);
+  }, [isClient]);
+
+  if (!isClient) {
+    return null;
+  }
 
   return (
     <div className="container mx-auto px-4 py-8">

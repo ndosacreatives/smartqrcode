@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 // import { updateUserData } from "@/lib/firestore";
-import { db } from "@/lib/firebase/config";
+import { db, isFirebaseAvailable } from "@/lib/firebase/config";
 import {
   collection,
   getDocs,
@@ -10,11 +10,14 @@ import {
   updateDoc,
   DocumentData,
   Timestamp,
+  query,
+  where,
 } from "firebase/firestore";
 import CreateUserModal from '@/components/admin/CreateUserModal';
 import { getSubscriptionDetails, SubscriptionTier } from '@/lib/subscriptions';
 import { useAuth } from '@/context/FirebaseAuthContext';
 import Link from 'next/link';
+import { User as FirebaseUser } from 'firebase/auth';
 
 interface User {
   id: string;
@@ -23,6 +26,12 @@ interface User {
   role: string;
   subscriptionTier: string;
   createdAt: any; // Firestore timestamp
+  subscription?: {
+    plan: string;
+    startDate: string;
+    endDate: string;
+    status: string;
+  };
 }
 
 export default function AdminUsersPage() {
@@ -37,6 +46,36 @@ export default function AdminUsersPage() {
   const [selectedTier, setSelectedTier] = useState('all');
   const [error, setError] = useState<string | null>(null);
   const [dataVersion, setDataVersion] = useState(0); // Add a version state to force refresh
+  const [isClient, setIsClient] = useState(false);
+  const [editForm, setEditForm] = useState<Partial<User>>({});
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [userToDelete, setUserToDelete] = useState<User | null>(null);
+  const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
+  const [userToSubscribe, setUserToSubscribe] = useState<User | null>(null);
+  const [subscriptionData, setSubscriptionData] = useState({
+    plan: '',
+    startDate: '',
+    endDate: '',
+    status: 'active'
+  });
+  const [showAddUserModal, setShowAddUserModal] = useState(false);
+  const [newUser, setNewUser] = useState<Partial<User>>({
+    email: '',
+    displayName: '',
+    role: 'user',
+    subscriptionTier: 'free',
+    subscription: {
+      plan: 'free',
+      startDate: '',
+      endDate: '',
+      status: 'inactive'
+    }
+  });
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   // Create a refresh function
   const refreshData = useCallback(() => {
@@ -45,7 +84,7 @@ export default function AdminUsersPage() {
 
   useEffect(() => {
     // Don't fetch users until authentication is complete
-    if (authLoading) return;
+    if (authLoading || !isClient) return;
     
     async function fetchUsers() {
       try {
@@ -83,7 +122,7 @@ export default function AdminUsersPage() {
     }
 
     fetchUsers();
-  }, [dataVersion, authLoading]); // Add authLoading as a dependency
+  }, [dataVersion, authLoading, isClient]);
 
   const handleEdit = (user: User) => {
     setEditingUserId(user.id);
@@ -107,15 +146,32 @@ export default function AdminUsersPage() {
   };
 
   const handleSaveChanges = async () => {
-    if (!editingUser) return;
+    if (!editingUser || !isClient) return;
     try {
-      const userDocRef = doc(db, "users", editingUser.id);
-      // Prepare data, excluding id
-      const { id, ...dataToUpdate } = editingUser;
-      await updateDoc(userDocRef, dataToUpdate);
-      // Update local state
-      setUsers(users.map(u => u.id === id ? editingUser : u));
+      const response = await fetch(`/api/admin/users/${editingUser.id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          displayName: editingUser.displayName,
+          email: editingUser.email,
+          role: editingUser.role,
+          subscriptionTier: editingUser.subscriptionTier,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to update user');
+      }
+
+      // Update local state for immediate UI feedback
+      setUsers(users.map(u => u.id === editingUser.id ? editingUser : u));
       handleCancelEdit();
+      // Also refresh data to ensure consistency
+      refreshData();
+      
       alert("User updated successfully!");
     } catch (error) {
       console.error("Error updating user:", error);

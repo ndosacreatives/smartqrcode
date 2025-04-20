@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { onAuthStateChanged, getAuth } from 'firebase/auth';
 import { app } from '@/lib/firebase/config';
+import { isFirebaseAvailable } from '@/lib/firebase/config';
 
 export default function ApiAdminSetupPage() {
   const [userId, setUserId] = useState<string | null>(null);
@@ -10,9 +11,16 @@ export default function ApiAdminSetupPage() {
   const [status, setStatus] = useState<string | null>(null);
   const [processing, setProcessing] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   // Get current user
   useEffect(() => {
+    if (!isClient || !isFirebaseAvailable()) return;
+
     const auth = getAuth(app);
     
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -27,10 +35,10 @@ export default function ApiAdminSetupPage() {
     });
     
     return () => unsubscribe();
-  }, []);
+  }, [isClient]);
 
   const makeAdmin = async () => {
-    if (!userId) {
+    if (!isClient || !userId) {
       setStatus('You must be logged in to perform this action');
       return;
     }
@@ -65,6 +73,10 @@ export default function ApiAdminSetupPage() {
       setProcessing(false);
     }
   };
+
+  if (!isClient) {
+    return null;
+  }
 
   if (loading) {
     return <div className="p-8">Loading...</div>;

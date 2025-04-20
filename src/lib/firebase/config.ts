@@ -24,6 +24,58 @@ let auth: Auth;
 let db: Firestore;
 let storage: FirebaseStorage;
 
+// Create a stub auth object for build time
+const createStubAuth = (app: FirebaseApp): Auth => {
+  return {
+    app,
+    name: 'auth',
+    config: {},
+    currentUser: null,
+    languageCode: null,
+    tenantId: null,
+    settings: { appVerificationDisabledForTesting: false },
+    onAuthStateChanged: () => () => {},
+    onIdTokenChanged: () => () => {},
+    signOut: async () => {},
+    updateCurrentUser: async () => {},
+    useDeviceLanguage: () => {},
+    setPersistence: async () => {},
+    signInWithCredential: async () => ({ user: null }),
+    signInWithCustomToken: async () => ({ user: null }),
+    signInWithEmailAndPassword: async () => ({ user: null }),
+    signInWithPhoneNumber: async () => ({ verificationId: '' }),
+    signInWithPopup: async () => ({ user: null }),
+    signInWithRedirect: async () => {},
+    updatePassword: async () => {},
+    verifyPasswordResetCode: async () => '',
+    confirmPasswordReset: async () => {},
+    applyActionCode: async () => {},
+    checkActionCode: async () => ({ data: {} }),
+    sendPasswordResetEmail: async () => {},
+    sendSignInLinkToEmail: async () => {},
+    isSignInWithEmailLink: () => false,
+    signInWithEmailLink: async () => ({ user: null }),
+  } as unknown as Auth;
+};
+
+// Create a stub firestore object for build time
+const createStubFirestore = (app: FirebaseApp): Firestore => {
+  return {
+    app,
+    type: 'firestore',
+    toJSON: () => ({}),
+  } as Firestore;
+};
+
+// Create a stub storage object for build time
+const createStubStorage = (app: FirebaseApp): FirebaseStorage => {
+  return {
+    app,
+    maxOperationRetryTime: 0,
+    maxUploadRetryTime: 0,
+  } as FirebaseStorage;
+};
+
 try {
   if (!getApps().length) {
     if (isMissingConfig && isBuildConfig) {
@@ -49,18 +101,18 @@ try {
     storage = getStorage(app);
   } else {
     // Create stub services for build
-    auth = { app } as Auth;
-    db = { app } as Firestore;
-    storage = { app } as FirebaseStorage;
+    auth = createStubAuth(app);
+    db = createStubFirestore(app);
+    storage = createStubStorage(app);
   }
 } catch (error) {
   console.error('Error initializing Firebase:', error);
   if (isBuildConfig) {
     console.warn('Creating Firebase stub app due to initialization error during build.');
     app = { name: '[stub-error]', options: {}, automaticDataCollectionEnabled: false, toJSON: () => ({}) } as FirebaseApp;
-    auth = { app } as Auth;
-    db = { app } as Firestore;
-    storage = { app } as FirebaseStorage;
+    auth = createStubAuth(app);
+    db = createStubFirestore(app);
+    storage = createStubStorage(app);
   } else {
     throw error; // Re-throw in development
   }

@@ -1,9 +1,9 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { doc, setDoc, getDoc, Timestamp } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
-import { app, db, auth } from '@/lib/firebase/config';
+import { auth } from '@/lib/firebase/config';
+import { isFirebaseAvailable } from '@/lib/firebase/config';
 
 export default function SimpleAdminSetupPage() {
   const [userId, setUserId] = useState<string | null>(null);
@@ -12,9 +12,16 @@ export default function SimpleAdminSetupPage() {
   const [status, setStatus] = useState<string | null>(null);
   const [processing, setProcessing] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   // Get current user
   useEffect(() => {
+    if (!isClient) return;
+
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
         setUserId(user.uid);
@@ -23,14 +30,19 @@ export default function SimpleAdminSetupPage() {
         // Check current role
         const getUserRole = async () => {
           try {
-            const userDocRef = doc(db, 'users', user.uid);
-            const userDoc = await getDoc(userDocRef);
+            const response = await fetch(`/api/admin/users/${user.uid}`, {
+              headers: {
+                'Cache-Control': 'no-cache',
+                'Pragma': 'no-cache'
+              }
+            });
             
-            if (userDoc.exists()) {
-              setRole(userDoc.data().role || 'user');
-            } else {
-              setRole('No user document');
+            if (!response.ok) {
+              throw new Error(`Error ${response.status}: ${await response.text()}`);
             }
+            
+            const data = await response.json();
+            setRole(data.role || 'user');
           } catch (err) {
             console.error('Error checking user role:', err);
             setStatus('Error checking your role. Please check console.');
@@ -49,10 +61,10 @@ export default function SimpleAdminSetupPage() {
     });
     
     return () => unsubscribe();
-  }, []);
+  }, [isClient]);
 
   const makeAdmin = async () => {
-    if (!userId) {
+    if (!isClient || !userId) {
       setStatus('You must be logged in to perform this action');
       return;
     }
@@ -61,12 +73,18 @@ export default function SimpleAdminSetupPage() {
       setProcessing(true);
       setStatus('Processing...');
       
-      // Create or update the user document
-      await setDoc(doc(db, 'users', userId), {
-        role: 'admin',
-        email: userEmail,
-        updatedAt: Timestamp.now()
-      }, { merge: true });
+      const response = await fetch(`/api/admin/users/${userId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ role: 'admin' }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to update user role');
+      }
       
       setRole('admin');
       setStatus('Success! You are now an admin. Please sign out and sign back in for changes to take effect.');
@@ -77,6 +95,10 @@ export default function SimpleAdminSetupPage() {
       setProcessing(false);
     }
   };
+
+  if (!isClient) {
+    return null;
+  }
 
   if (loading) {
     return <div className="p-8">Loading...</div>;
@@ -129,7 +151,7 @@ export default function SimpleAdminSetupPage() {
       
       <div className="bg-yellow-50 p-4 rounded">
         <h3 className="font-bold">Important Note:</h3>
-        <p>This page uses a simplified Firebase setup that doesn't use persistence, which should avoid the internal errors.</p>
+        <p>This page uses API routes instead of direct Firestore access to avoid build-time issues.</p>
         <p className="mt-2">After becoming an admin, sign out and sign back in for the changes to take effect.</p>
       </div>
     </div>

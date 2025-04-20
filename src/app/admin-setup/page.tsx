@@ -3,38 +3,44 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/context/FirebaseAuthContext';
 import { doc, getDoc, updateDoc, Timestamp } from 'firebase/firestore';
-import { db } from '@/lib/firebase/config';
+import { db, isFirebaseAvailable } from '@/lib/firebase/config';
+import { User } from 'firebase/auth';
 
 export default function AdminSetupPage() {
   const { user, loading } = useAuth();
   const [status, setStatus] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<string | null>(null);
   const [processing, setProcessing] = useState(false);
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   useEffect(() => {
     async function checkUserRole() {
-      if (user && 'uid' in user) {
-        try {
-          const userDocRef = doc(db, 'users', user.uid);
-          const userDoc = await getDoc(userDocRef);
-          
-          if (userDoc.exists()) {
-            setUserRole(userDoc.data().role || 'user');
-          }
-        } catch (err) {
-          console.error('Error checking user role:', err);
-          setStatus('Error checking your role. See console for details.');
+      if (!isClient || !isFirebaseAvailable() || !user || !('uid' in user)) return;
+      
+      try {
+        const userDocRef = doc(db, 'users', user.uid);
+        const userDoc = await getDoc(userDocRef);
+        
+        if (userDoc.exists()) {
+          setUserRole(userDoc.data().role || 'user');
         }
+      } catch (err) {
+        console.error('Error checking user role:', err);
+        setStatus('Error checking your role. See console for details.');
       }
     }
     
     if (user) {
       checkUserRole();
     }
-  }, [user]);
+  }, [user, isClient]);
 
   const makeAdmin = async () => {
-    if (!user || !('uid' in user)) {
+    if (!isClient || !isFirebaseAvailable() || !user || !('uid' in user)) {
       setStatus('You must be logged in to perform this action');
       return;
     }
@@ -60,6 +66,10 @@ export default function AdminSetupPage() {
       setProcessing(false);
     }
   };
+
+  if (!isClient) {
+    return null;
+  }
 
   if (loading) {
     return (
@@ -87,7 +97,7 @@ export default function AdminSetupPage() {
       
       <div className="bg-white shadow-md rounded-lg p-6 mb-6">
         <h2 className="text-lg font-semibold mb-4">Your Account</h2>
-        <p><strong>User ID:</strong> {'uid' in user ? user.uid : user.id}</p>
+        <p><strong>User ID:</strong> {user.uid}</p>
         <p><strong>Email:</strong> {user.email}</p>
         <p><strong>Current Role:</strong> {userRole || 'Loading...'}</p>
         

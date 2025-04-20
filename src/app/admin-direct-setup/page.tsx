@@ -1,17 +1,21 @@
 "use client";
 
-import React, { useState } from 'react';
-import { doc, setDoc, Timestamp } from 'firebase/firestore';
-import { db } from '@/lib/firebase/config';
+import React, { useState, useEffect } from 'react';
+import { isFirebaseAvailable } from '@/lib/firebase/config';
 
 export default function AdminDirectSetupPage() {
   const [userId, setUserId] = useState('');
   const [status, setStatus] = useState<string | null>(null);
   const [processing, setProcessing] = useState(false);
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   const makeAdmin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!userId.trim()) {
+    if (!isClient || !userId.trim()) {
       setStatus('Please enter a user ID');
       return;
     }
@@ -20,11 +24,18 @@ export default function AdminDirectSetupPage() {
       setProcessing(true);
       setStatus('Processing...');
       
-      // Using setDoc with merge to update or create the document
-      await setDoc(doc(db, 'users', userId), {
-        role: 'admin',
-        updatedAt: Timestamp.now()
-      }, { merge: true });
+      const response = await fetch(`/api/admin/users/${userId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ role: 'admin' }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to update user role');
+      }
       
       setStatus('Success! User is now an admin. Please sign out and sign back in for changes to take effect.');
     } catch (err) {
@@ -34,6 +45,10 @@ export default function AdminDirectSetupPage() {
       setProcessing(false);
     }
   };
+
+  if (!isClient) {
+    return null;
+  }
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -78,14 +93,14 @@ export default function AdminDirectSetupPage() {
           <p className="font-semibold">How to find your User ID:</p>
           <ol className="list-decimal pl-4 mt-2">
             <li>Log in to your account</li>
-            <li>Open the browser developer console (F12 or Right-click > Inspect)</li>
+            <li>Open the browser developer console (F12 or Right-click &gt; Inspect)</li>
             <li>Type this command in the console: <code className="bg-gray-100 px-1">console.log(localStorage.getItem('firebase-auth-token'))</code></li>
             <li>The user ID is in the decoded token (you can use <a href="https://jwt.io/" target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline">jwt.io</a> to decode it)</li>
           </ol>
           
           <p className="font-semibold mt-4">Important Warning:</p>
           <ul className="list-disc pl-4 mt-2">
-            <li>This page uses a direct Firestore update and should be deleted after initial setup.</li>
+            <li>This page should be deleted after initial setup.</li>
             <li>In production, admin creation should be properly secured with additional authentication.</li>
             <li>After becoming an admin, sign out and sign back in for changes to take effect.</li>
           </ul>
