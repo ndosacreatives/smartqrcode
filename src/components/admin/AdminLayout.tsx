@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import AdminHeader from './AdminHeader';
 import AdminSidebar from './AdminSidebar';
-import { FirebaseAuthProvider, useAuth } from '@/context/FirebaseAuthContext';
+import { AuthProvider, useAuth } from '@/context/FirebaseAuthContext';
 import Link from 'next/link';
 
 interface AdminLayoutProps {
@@ -130,8 +130,8 @@ function AdminLayoutContent({ children }: AdminLayoutProps) {
 
 export default function AdminLayout({ children }: AdminLayoutProps) {
   return (
-    <FirebaseAuthProvider>
+    <AuthProvider>
       <AdminLayoutContent>{children}</AdminLayoutContent>
-    </FirebaseAuthProvider>
+    </AuthProvider>
   );
 } 
