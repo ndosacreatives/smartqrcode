@@ -1,9 +1,11 @@
 [build]
   command = "node scripts/netlify-build.js"
   publish = "out"
+  ignore = "git diff --quiet $CACHED_COMMIT_REF $COMMIT_REF -- . ':(exclude)content'"
 
 [build.environment]
-  NODE_VERSION = "18"
+  NODE_VERSION = "20"
+  NEXT_TELEMETRY_DISABLED = "1"
   NEXT_PRIVATE_TARGET = "server"
   ESLINT_NO_DEV_ERRORS = "true"
   NEXT_SKIP_API_ROUTES = "true"

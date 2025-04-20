@@ -4,7 +4,6 @@
 const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
-const rimraf = require('rimraf');
 
 // Define sections to exclude from static generation
 const excludedPaths = [
@@ -17,85 +16,125 @@ const excludedPaths = [
   'profile'
 ];
 
+// Helper function to remove a directory recursively
+function removeDirectory(dirPath) {
+  try {
+    if (fs.existsSync(dirPath)) {
+      console.log(`🗑️ Removing: ${dirPath}`);
+      fs.rmSync(dirPath, { recursive: true, force: true });
+    }
+  } catch (err) {
+    console.error(`Failed to remove ${dirPath}:`, err);
+  }
+}
+
+// Helper function to execute a command with proper error handling
+function runCommand(command) {
+  try {
+    console.log(`Running command: ${command}`);
+    execSync(command, { 
+      stdio: 'inherit',
+      env: {
+        ...process.env,
+        NEXT_DISABLE_ESLINT: '1',
+        NEXT_DISABLE_TYPE_CHECKS: '1',
+        NEXT_TELEMETRY_DISABLED: '1'
+      }
+    });
+    return true;
+  } catch (error) {
+    console.error(`Command failed: ${command}`);
+    console.error(error.message);
+    return false;
+  }
+}
+
 // Set environment variables for build
 process.env.NEXT_DISABLE_ESLINT = '1';
 process.env.NEXT_DISABLE_TYPE_CHECKS = '1';
+process.env.NEXT_TELEMETRY_DISABLED = '1';
+
+console.log("🔍 Node.js version:", process.version);
+console.log("📂 Current directory:", process.cwd());
+
+// First clean up any previous builds
+console.log('🧹 Cleaning previous build artifacts...');
+removeDirectory('.next');
+removeDirectory('out');
 
 // Run the Next.js build
-console.log('🏗️ Running Next.js build and export...');
-try {
-  // Run Next.js build with export
-  execSync('next build', { 
-    stdio: 'inherit',
-    env: {
-      ...process.env,
-      NEXT_DISABLE_ESLINT: '1',
-      NEXT_DISABLE_TYPE_CHECKS: '1'
-    } 
-  });
+console.log('🏗️ Building the Next.js application...');
+
+// Try to build with a few different approaches
+let buildSuccess = false;
+
+// Approach 1: Use npx next build with output export
+buildSuccess = runCommand('npx next build');
+
+if (!buildSuccess) {
+  console.log('⚠️ First build approach failed, trying alternative...');
+  // Approach 2: Try the static export build script
+  buildSuccess = runCommand('npm run build:static');
+}
+
+if (!buildSuccess) {
+  console.error('❌ All build approaches failed. Creating fallback page...');
   
-  console.log('✅ Build completed. Now cleaning up excluded routes...');
-  
-  // The 'out' directory should contain the exported static site
-  if (fs.existsSync('out')) {
-    console.log('🧹 Removing excluded paths from static export...');
-    
-    // Remove excluded paths
-    excludedPaths.forEach(excludedPath => {
-      const fullPath = path.join('out', excludedPath);
-      if (fs.existsSync(fullPath)) {
-        console.log(`🗑️ Removing: ${fullPath}`);
-        try {
-          rimraf.sync(fullPath);
-        } catch (err) {
-          console.error(`Failed to remove ${fullPath}:`, err);
-        }
-      }
-    });
-    
-    // Create placeholder pages for excluded paths
-    console.log('📝 Creating placeholder pages for excluded paths...');
-    excludedPaths.forEach(excludedPath => {
-      createPlaceholderPage(excludedPath);
-    });
-  } else {
-    console.error('❌ Output directory "out" not found!');
-    process.exit(1);
-  }
-} catch (error) {
-  console.error('❌ Build failed:', error);
-  
-  // Create out directory if it doesn't exist (for minimum viable deployment)
+  // Create out directory for a fallback page
   if (!fs.existsSync('out')) {
     fs.mkdirSync('out', { recursive: true });
-    
-    // Create a minimal index.html
-    const minimalHtml = `
-      <!DOCTYPE html>
-      <html lang="en">
-      <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Smart QR Code Generator</title>
-        <style>
-          body { font-family: sans-serif; max-width: 800px; margin: 0 auto; padding: 2rem; }
-          .error { background: #f8d7da; color: #842029; padding: 1rem; border-radius: 4px; }
-        </style>
-      </head>
-      <body>
-        <h1>Smart QR Code Generator</h1>
-        <div class="error">
-          <p>There was an error during the build process.</p>
-          <p>Please try again later or contact the site administrator.</p>
-        </div>
-      </body>
-      </html>
-    `.trim();
-    
-    fs.writeFileSync(path.join('out', 'index.html'), minimalHtml);
-    console.log('📄 Created minimal index.html as fallback');
   }
   
+  // Create a minimal index.html as fallback
+  const minimalHtml = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Smart QR Code Generator</title>
+  <style>
+    body { font-family: sans-serif; max-width: 800px; margin: 0 auto; padding: 2rem; }
+    .error { background: #f8d7da; color: #842029; padding: 1rem; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <h1>Smart QR Code Generator</h1>
+  <div class="error">
+    <p>There was an error during the build process.</p>
+    <p>Please try again later or contact the site administrator.</p>
+  </div>
+</body>
+</html>
+  `.trim();
+  
+  fs.writeFileSync(path.join('out', 'index.html'), minimalHtml);
+  console.log('📄 Created minimal index.html as fallback');
+  
+  process.exit(1);
+}
+
+console.log('✅ Build completed successfully!');
+
+// The 'out' directory should contain the exported static site
+if (fs.existsSync('out')) {
+  console.log('🧹 Removing excluded paths from static export...');
+  
+  // Remove excluded paths
+  excludedPaths.forEach(excludedPath => {
+    const fullPath = path.join('out', excludedPath);
+    removeDirectory(fullPath);
+  });
+  
+  // Create placeholder pages for excluded paths
+  console.log('📝 Creating placeholder pages for excluded paths...');
+  excludedPaths.forEach(excludedPath => {
+    createPlaceholderPage(excludedPath);
+  });
+  
+  console.log('✅ All excluded paths processed. Build complete!');
+} else {
+  console.error('❌ Output directory "out" not found!');
   process.exit(1);
 }
 
@@ -110,20 +149,20 @@ function createPlaceholderPage(pagePath) {
   
   // Create index.html in the folder
   const html = `
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-      <meta charset="utf-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1">
-      <title>Redirecting...</title>
-      <script>
-        window.location.href = "/";
-      </script>
-    </head>
-    <body>
-      <p>Redirecting to home page...</p>
-    </body>
-    </html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Redirecting...</title>
+  <script>
+    window.location.href = "/";
+  </script>
+</head>
+<body>
+  <p>Redirecting to home page...</p>
+</body>
+</html>
   `.trim();
   
   fs.writeFileSync(path.join(folderPath, 'index.html'), html);

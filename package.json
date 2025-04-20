@@ -9,6 +9,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "node scripts/check-node-version.js && node scripts/check-firebase-config.js && next build",
+    "export": "next export",
+    "build:static": "next build && next export",
     "start": "next start",
     "lint": "next lint",
     "netlify:build": "node scripts/netlify-build.js",
