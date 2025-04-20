@@ -1,11 +1,22 @@
 'use client';
 
-import React, { useState } from 'react';
-import QRCodeModal from '@/components/QRCodeModal';
+import React, { useState, useEffect } from 'react';
+import dynamic from 'next/dynamic';
+
+// Dynamically import QRCodeModal with no SSR to prevent it from running during build
+const QRCodeModal = dynamic(() => import('@/components/QRCodeModal'), {
+  ssr: false,
+});
 
 export default function QRModalExamplePage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalQrValue, setModalQrValue] = useState('');
+  const [isBrowser, setIsBrowser] = useState(false);
+
+  // Detect if we're in the browser environment
+  useEffect(() => {
+    setIsBrowser(true);
+  }, []);
 
   const handleOpenModal = () => {
     // Example QR code value
@@ -41,7 +52,7 @@ export default function QRModalExamplePage() {
         </ul>
       </div>
 
-      {isModalOpen && (
+      {isBrowser && isModalOpen && (
         <QRCodeModal
           value={modalQrValue}
           isOpen={isModalOpen}
