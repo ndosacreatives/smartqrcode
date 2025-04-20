@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
-    "build": "next build",
+    "build": "next build && next export",
     "static-build": "node static-build.js",
     "netlify-build": "cross-env NETLIFY_NEXT_PLUGIN_SKIP=true NEXT_DISABLE_ESLINT=1 NEXT_DISABLE_TYPE_CHECKS=1 npm run static-build",
     "start": "next start",
