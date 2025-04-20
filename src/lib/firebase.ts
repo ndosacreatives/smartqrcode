@@ -22,16 +22,23 @@ const firebaseConfig = {
   measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID
 };
 
-// Check if any essential Firebase config is missing, especially during build
+// Check if any essential Firebase config is missing
 const isMissingConfig = !firebaseConfig.apiKey || !firebaseConfig.projectId || !firebaseConfig.appId;
+const isBuildConfig = process.env.NODE_ENV === 'production' || process.env.STATIC_EXPORT_ONLY === 'true';
 
 // Initialize Firebase App (prevent re-initialization)
 let app: FirebaseApp;
 try {
   if (!getApps().length) {
-    if (isMissingConfig && process.env.NODE_ENV === 'production') {
-      console.warn('Firebase configuration is incomplete. Using stub for build.');
-      app = {} as FirebaseApp; // Type casting for build process
+    if (isMissingConfig && isBuildConfig) {
+      console.warn('Firebase config missing during build. Creating stub app.');
+      // Create a minimal stub that satisfies type checks
+      app = {
+        name: '[stub]',
+        options: {},
+        automaticDataCollectionEnabled: false,
+        toJSON: () => ({ name: '[stub]', options: {} })
+      } as FirebaseApp;
     } else {
       app = initializeApp(firebaseConfig);
     }
@@ -40,103 +47,84 @@ try {
   }
 } catch (error) {
   console.error('Error initializing Firebase:', error);
-  // Provide a stub for SSG build process to continue
-  if (process.env.NODE_ENV === 'production' || process.env.STATIC_EXPORT_ONLY === 'true') {
-    console.warn('Creating Firebase stub for build process');
-    app = {} as FirebaseApp; // Type casting for build
+  if (isBuildConfig) {
+    console.warn('Creating Firebase stub app due to initialization error during build.');
+    app = { name: '[stub-error]', options: {}, automaticDataCollectionEnabled: false, toJSON: () => ({}) } as FirebaseApp;
   } else {
-    throw error; // Re-throw in development for debugging
+    throw error; // Re-throw in development
   }
 }
 
-// Initialize Firebase services conditionally to prevent errors during build
+// Initialize Firebase services, using stubs if app is a stub
 let auth: Auth;
 let db: Firestore;
 let storage: FirebaseStorage;
 let analytics: Analytics | undefined;
 
-// Only initialize services if not in SSG/build mode or if app is properly initialized
-const canInitServices = 
-  typeof window !== 'undefined' && // Browser environment
-  !(process.env.STATIC_EXPORT_ONLY === 'true'); // Not in static export
-
-if (canInitServices && app && typeof app.name === 'string') {
-  try {
-    // Initialize Firebase Authentication
-    auth = getAuth(app);
-    
-    // Configure auth settings for global phone authentication
-    if (typeof window !== 'undefined') {
-      // Only run in browser environment
-      auth.settings.appVerificationDisabledForTesting = false;
-      auth.languageCode = 'en'; // Set default language for SMS messages
-      console.log('Firebase Auth configured for global phone authentication');
-    }
-    
-    // Initialize Firestore
-    db = getFirestore(app);
-    
-    // Enable offline persistence only in browser environment
-    if (typeof window !== 'undefined') {
-      // Use multi-tab persistence to fix the exclusive access error
-      enableMultiTabIndexedDbPersistence(db).catch((err) => {
-        if (err.code === 'failed-precondition') {
-          // Multiple tabs open, persistence can only be enabled in one tab
-          console.warn('Firebase persistence failed: Multiple tabs open');
-          console.warn('Falling back to memory-only persistence');
-        } else if (err.code === 'unimplemented') {
-          // Current browser doesn't support persistence
-          console.warn('Firebase persistence not supported in this browser');
-        }
-      });
-    }
-    
-    // Initialize Storage
-    storage = getStorage(app);
-    
-    // Initialize Analytics only if supported (runs only in browser)
-    if (typeof window !== 'undefined') {
-      isSupported().then((supported) => {
-        if (supported) {
-          analytics = getAnalytics(app);
-        } else {
-          console.log("Firebase Analytics is not supported in this environment.");
-        }
-      });
-    }
-  } catch (error) {
-    console.error('Error initializing Firebase services:', error);
-  }
+if (app.name.startsWith('[stub')) {
+  console.log('Using Firebase stub services for build.');
+  auth = { app } as Auth; // Minimal stub satisfying type checks
+  db = { app } as Firestore;
+  storage = { app } as FirebaseStorage;
+  analytics = undefined;
 } else {
-  console.log('Skipping Firebase service initialization during build');
-  // Create stub objects for export to prevent runtime errors during build
-  auth = { app: app } as Auth; // Provide minimal stub with app reference
-  db = { app: app } as Firestore;
-  storage = { app: app } as FirebaseStorage;
-  analytics = undefined; // Keep analytics as potentially undefined
-}
+  // Initialize real services
+  auth = getAuth(app);
+  db = getFirestore(app);
+  storage = getStorage(app);
 
-// Create a function to get a RecaptchaVerifier instance when needed
-// This prevents trying to access DOM elements at module initialization
-export function getRecaptchaVerifier(elementId: string) {
-  // Add extra check for app existence on auth object
-  if (!auth || !auth.app || typeof auth.app.name !== 'string') {
-    console.error('Auth not initialized properly for RecaptchaVerifier');
-    return null;
-  }
-  
-  try {
-    return new RecaptchaVerifier(auth, elementId, {
-      size: 'invisible',
-      callback: () => {
-        console.log('Captcha resolved');
-      },
-      'expired-callback': () => {
-        console.log('Captcha expired');
+  // Configure Persistence and Analytics only on client-side
+  if (typeof window !== 'undefined') {
+    // Multi-tab persistence
+    enableMultiTabIndexedDbPersistence(db).catch((err) => {
+      if (err.code === 'failed-precondition') {
+        console.warn('Firebase persistence failed: Multiple tabs open');
+      } else if (err.code === 'unimplemented') {
+        console.warn('Firebase persistence not supported');
       }
     });
+    
+    // Analytics
+    isSupported().then((supported) => {
+      if (supported) {
+        analytics = getAnalytics(app);
+      } else {
+        console.log("Firebase Analytics not supported.");
+      }
+    });
+    
+    // Auth settings (client-side only)
+    auth.languageCode = 'en';
+    console.log('Firebase Auth configured.');
+  }
+}
+
+// Function to check if Firebase is properly configured and initialized
+export function isFirebaseAvailable(): boolean {
+  // Check if the app object is NOT a stub and auth/db were likely initialized
+  return !!app && !app.name.startsWith('[stub') && !!auth && !!db;
+}
+
+// Recaptcha Verifier - must be called client-side
+export function getRecaptchaVerifier(elementId: string): RecaptchaVerifier | null {
+  if (typeof window === 'undefined' || !auth || app.name.startsWith('[stub')) {
+    console.error('Cannot get RecaptchaVerifier: Not in browser or Auth not initialized/stubbed.');
+    return null;
+  }
+  try {
+    if (!document.getElementById(elementId)) {
+       const div = document.createElement('div'); 
+       div.id = elementId; 
+       document.body.appendChild(div); // Create container if missing
+       console.warn(`Created missing Recaptcha container '${elementId}'.`);
+    }
+    return new RecaptchaVerifier(auth, elementId, {
+      size: 'invisible',
+      callback: (response: any) => { console.log('reCAPTCHA verified'); },
+      'expired-callback': () => { console.warn('reCAPTCHA expired'); }
+    });
   } catch (error) {
-    console.error('Error creating RecaptchaVerifier:', error);
+    console.error("Error creating RecaptchaVerifier:", error);
     return null;
   }
 }
