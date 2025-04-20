@@ -139,6 +139,7 @@ const pagesToExclude = [
 
 // Store references to moved directories
 let movedPaths = [];
+let placeholderFilesCreated = []; // Keep track of placeholders (moved declaration outside try)
 
 try {
   // Move problem pages
@@ -149,7 +150,6 @@ try {
   
   // Create placeholder files for admin, account, etc. to avoid build errors
   console.log('📝 Creating placeholder files for excluded sections...');
-  const placeholderFilesCreated = []; // Keep track of placeholders
   pagesToExclude.forEach(page => {
     if (page !== '/api') { // Skip API routes
       const placeholderPath = path.join(appDir, page.substring(1), 'page.tsx');
