@@ -1,7 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { verifyAuth, db } from '@/lib/firebase/admin';
+'use server';
+
+import { db } from '@/lib/firebase/admin';
 import * as crypto from 'crypto';
-import { getCredentials, saveCredentials } from '@/lib/credentials.server';
 
 // Encryption/decryption functions
 export function encryptData(data: string): { encryptedData: string; iv: string } {
@@ -38,7 +38,7 @@ export function decryptData(encryptedData: string, iv: string): string {
 }
 
 // Save credentials with encryption
-async function saveCredentials(credentials: Record<string, string>, userId: string) {
+export async function saveCredentials(credentials: Record<string, string>, userId: string) {
   // Create a new record with encrypted values
   const encryptedCredentials: Record<string, any> = {};
   
@@ -76,7 +76,7 @@ async function saveCredentials(credentials: Record<string, string>, userId: stri
 }
 
 // Fetch and decrypt credentials
-async function getCredentials() {
+export async function getCredentials() {
   const doc = await db.collection('appSettings').doc('apiCredentials').get();
   
   if (!doc.exists) {
@@ -109,6 +109,11 @@ async function getCredentials() {
 // Fetch specific credential key for internal use
 export async function getDecryptedCredential(key: string): Promise<string | null> {
   try {
+    // First check environment variables
+    if (process.env[key]) {
+      return process.env[key] as string;
+    }
+    
     const doc = await db.collection('appSettings').doc('apiCredentials').get();
     
     if (!doc.exists) {
@@ -142,6 +147,14 @@ export async function getAllDecryptedCredentials(): Promise<Record<string, strin
     const data = doc.data();
     const credentials: Record<string, string> = {};
     
+    // Add environment variables first
+    Object.keys(process.env).forEach(key => {
+      if (process.env[key]) {
+        credentials[key] = process.env[key] as string;
+      }
+    });
+    
+    // Then add database credentials (which will override env vars if they exist)
     if (data?.credentials) {
       for (const [key, value] of Object.entries(data.credentials)) {
         if (value && typeof value === 'object' && 'encrypted' in value && 'iv' in value) {
@@ -158,69 +171,5 @@ export async function getAllDecryptedCredentials(): Promise<Record<string, strin
   } catch (error) {
     console.error('Error fetching all credentials:', error);
     return {};
-  }
-}
-
-// API handler for GET and POST requests
-export async function GET(request: NextRequest) {
-  try {
-    // Verify admin authentication
-    const authToken = request.headers.get('authorization')?.split('Bearer ')[1];
-    
-    if (!authToken) {
-      return NextResponse.json({ error: 'Unauthorized: No token provided' }, { status: 401 });
-    }
-    
-    const authResult = await verifyAuth(authToken);
-    
-    if (!authResult.isAdmin) {
-      return NextResponse.json({ error: 'Forbidden: Admin access required' }, { status: 403 });
-    }
-    
-    // Get credentials (placeholders only for UI)
-    const credentialsData = await getCredentials();
-    
-    return NextResponse.json(credentialsData);
-  } catch (error) {
-    console.error('Error in GET /api/admin/credentials:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch credentials' },
-      { status: 500 }
-    );
-  }
-}
-
-export async function POST(request: NextRequest) {
-  try {
-    // Verify admin authentication
-    const authToken = request.headers.get('authorization')?.split('Bearer ')[1];
-    
-    if (!authToken) {
-      return NextResponse.json({ error: 'Unauthorized: No token provided' }, { status: 401 });
-    }
-    
-    const authResult = await verifyAuth(authToken);
-    
-    if (!authResult.isAdmin || !authResult.user) {
-      return NextResponse.json({ error: 'Forbidden: Admin access required' }, { status: 403 });
-    }
-    
-    // Get the request body
-    const credentials = await request.json();
-    
-    // Save credentials
-    const result = await saveCredentials(credentials, authResult.user.uid);
-    
-    return NextResponse.json({
-      success: true,
-      message: 'Credentials saved successfully',
-      updatedAt: result.updatedAt,
-    });
-  } catch (error) {
-    console.error('Error in POST /api/admin/credentials:', error);
-    return NextResponse.json(
-      { error: 'Failed to save credentials' },
-      { status: 500 }
-    );
   }
 } 
