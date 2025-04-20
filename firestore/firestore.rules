@@ -1,0 +1,103 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isAdmin() {
+      return isAuthenticated() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    function isValidQRCode(data) {
+      return data.title is string && 
+             data.userId is string && 
+             data.type is string && 
+             data.createdAt is timestamp;
+    }
+    
+    // Users collection
+    match /users/{userId} {
+      // Users can read their own profile
+      // Admins can read and write all user profiles
+      // Users can create their own profile
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if isAuthenticated() && request.auth.uid == userId;
+      allow update: if isOwner(userId) || isAdmin();
+      allow delete: if isAdmin();
+      
+      // User's private data
+      match /private/{document=**} {
+        allow read, write: if isOwner(userId) || isAdmin();
+      }
+    }
+    
+    // QR Codes collection
+    match /codes/{codeId} {
+      // Users can read and write their own codes
+      // Public codes can be read by anyone
+      // Admins can read and write all codes
+      function isCodeOwner() {
+        return isAuthenticated() && request.auth.uid == resource.data.userId;
+      }
+      
+      allow read: if isCodeOwner() || isAdmin() || resource.data.isPublic == true;
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid && isValidQRCode(request.resource.data);
+      allow update: if isCodeOwner() || isAdmin();
+      allow delete: if isCodeOwner() || isAdmin();
+      
+      // Analytics for each code
+      match /analytics/{analyticsId} {
+        allow read: if isCodeOwner() || isAdmin();
+        allow write: if true; // Allow anonymous writes for tracking
+      }
+    }
+    
+    // Subscriptions collection
+    match /subscriptions/{subscriptionId} {
+      // Users can read their own subscriptions
+      // Admins can read and write all subscriptions
+      function isSubscriptionOwner() {
+        return isAuthenticated() && request.auth.uid == resource.data.userId;
+      }
+      
+      allow read: if isSubscriptionOwner() || isAdmin();
+      allow create, update, delete: if isAdmin();
+    }
+    
+    // Transactions collection
+    match /transactions/{transactionId} {
+      // Users can read their own transactions
+      // Admins can read and write all transactions
+      function isTransactionOwner() {
+        return isAuthenticated() && request.auth.uid == resource.data.userId;
+      }
+      
+      allow read: if isTransactionOwner() || isAdmin();
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isAdmin();
+    }
+    
+    // API Credentials collection
+    match /app_credentials/{credId} {
+      // Only admins can manage API credentials
+      allow read, write: if isAdmin();
+    }
+    
+    // Payment Gateway Configuration
+    match /gateway_config/{configId} {
+      // Only admins can manage gateway configurations
+      allow read, write: if isAdmin();
+    }
+    
+    // Default deny all other collections
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

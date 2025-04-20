@@ -1,0 +1,268 @@
+[33mcommit c212645d16f714b021b2d54047afa2279c98cb75[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmaster[m[33m, [m[1;31morigin/master[m[33m)[m
+Author: MUTUKU <yusuf.mutuku@gmail.com>
+Date:   Sun Apr 20 04:12:08 2025 +0300
+
+    Update QRCodeModal to use qrcode library with client-side rendering
+
+[1mdiff --git a/src/app/qr-modal-example/page.tsx b/src/app/qr-modal-example/page.tsx[m
+[1mindex eb811bc..0fa4a44 100644[m
+[1m--- a/src/app/qr-modal-example/page.tsx[m
+[1m+++ b/src/app/qr-modal-example/page.tsx[m
+[36m@@ -1,11 +1,22 @@[m
+ 'use client';[m
+ [m
+[31m-import React, { useState } from 'react';[m
+[31m-import QRCodeModal from '@/components/QRCodeModal';[m
+[32m+[m[32mimport React, { useState, useEffect } from 'react';[m
+[32m+[m[32mimport dynamic from 'next/dynamic';[m
+[32m+[m
+[32m+[m[32m// Dynamically import QRCodeModal with no SSR to prevent it from running during build[m
+[32m+[m[32mconst QRCodeModal = dynamic(() => import('@/components/QRCodeModal'), {[m
+[32m+[m[32m  ssr: false,[m
+[32m+[m[32m});[m
+ [m
+ export default function QRModalExamplePage() {[m
+   const [isModalOpen, setIsModalOpen] = useState(false);[m
+   const [modalQrValue, setModalQrValue] = useState('');[m
+[32m+[m[32m  const [isBrowser, setIsBrowser] = useState(false);[m
+[32m+[m
+[32m+[m[32m  // Detect if we're in the browser environment[m
+[32m+[m[32m  useEffect(() => {[m
+[32m+[m[32m    setIsBrowser(true);[m
+[32m+[m[32m  }, []);[m
+ [m
+   const handleOpenModal = () => {[m
+     // Example QR code value[m
+[36m@@ -41,7 +52,7 @@[m [mexport default function QRModalExamplePage() {[m
+         </ul>[m
+       </div>[m
+ [m
+[31m-      {isModalOpen && ([m
+[32m+[m[32m      {isBrowser && isModalOpen && ([m
+         <QRCodeModal[m
+           value={modalQrValue}[m
+           isOpen={isModalOpen}[m
+[1mdiff --git a/src/components/QRCodeModal.tsx b/src/components/QRCodeModal.tsx[m
+[1mindex 45f1535..c4c4f29 100644[m
+[1m--- a/src/components/QRCodeModal.tsx[m
+[1m+++ b/src/components/QRCodeModal.tsx[m
+[36m@@ -1,145 +1,115 @@[m
+ "use client";[m
+ [m
+[31m-import React, { useState, useRef, useEffect } from "react";[m
+[31m-import QRCode from "react-qr-code";[m
+[31m-import * as qrcode from "qrcode";[m
+[32m+[m[32mimport React, { useEffect, useRef, useState } from 'react';[m
+[32m+[m[32mimport QRCode from 'qrcode';[m
+ [m
+ interface QRCodeModalProps {[m
+   isOpen: boolean;[m
+   onClose: () => void;[m
+   value: string;[m
+   title?: string;[m
+[31m-  downloadable?: boolean;[m
+ }[m
+ [m
+[31m-export default function QRCodeModal({ [m
+[31m-  isOpen, [m
+[31m-  onClose, [m
+[31m-  value, [m
+[31m-  title = "QR Code", [m
+[31m-  downloadable = true [m
+[31m-}: QRCodeModalProps) {[m
+[31m-  const qrRef = useRef<HTMLDivElement>(null);[m
+[31m-  const [qrSize] = useState(256);[m
+[32m+[m[32mexport default function QRCodeModal({ isOpen, onClose, value, title = 'QR Code' }: QRCodeModalProps) {[m
+[32m+[m[32m  const qrCodeRef = useRef<HTMLDivElement>(null);[m
+[32m+[m[32m  const [isBrowser, setIsBrowser] = useState(false);[m
+[32m+[m[32m  const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>('');[m
+ [m
+[31m-  // Close modal when Escape key is pressed[m
+[32m+[m[32m  // Set isBrowser to true when component mounts (client-side only)[m
+   useEffect(() => {[m
+[31m-    const handleKeyDown = (e: KeyboardEvent) => {[m
+[31m-      if (e.key === "Escape") {[m
+[31m-        onClose();[m
+[32m+[m[32m    setIsBrowser(true);[m
+[32m+[m[32m  }, []);[m
+[32m+[m
+[32m+[m[32m  // Generate QR code when value changes[m
+[32m+[m[32m  useEffect(() => {[m
+[32m+[m[32m    if (!isBrowser || !value) return;[m
+[32m+[m[41m    [m
+[32m+[m[32m    const generateQRCode = async () => {[m
+[32m+[m[32m      try {[m
+[32m+[m[32m        const dataUrl = await QRCode.toDataURL(value, {[m
+[32m+[m[32m          width: 256,[m
+[32m+[m[32m          margin: 2,[m
+[32m+[m[32m        });[m
+[32m+[m[32m        setQrCodeDataUrl(dataUrl);[m
+[32m+[m[32m      } catch (err) {[m
+[32m+[m[32m        console.error('Error generating QR code:', err);[m
+       }[m
+     };[m
+[32m+[m[41m    [m
+[32m+[m[32m    generateQRCode();[m
+[32m+[m[32m  }, [value, isBrowser]);[m
+ [m
+[31m-    if (isOpen) {[m
+[31m-      document.addEventListener("keydown", handleKeyDown);[m
+[31m-    }[m
+[32m+[m[32m  useEffect(() => {[m
+[32m+[m[32m    if (!isBrowser) return;[m
+ [m
+[31m-    return () => {[m
+[31m-      document.removeEventListener("keydown", handleKeyDown);[m
+[32m+[m[32m    const handleKeyDown = (e: KeyboardEvent) => {[m
+[32m+[m[32m      if (e.key === 'Escape') {[m
+[32m+[m[32m        onClose();[m
+[32m+[m[32m      }[m
+     };[m
+[31m-  }, [isOpen, onClose]);[m
+ [m
+[31m-  // Prevent scrolling when modal is open[m
+[31m-  useEffect(() => {[m
+     if (isOpen) {[m
+[31m-      document.body.style.overflow = "hidden";[m
+[31m-    } else {[m
+[31m-      document.body.style.overflow = "auto";[m
+[32m+[m[32m      document.addEventListener('keydown', handleKeyDown);[m
+[32m+[m[32m      document.body.style.overflow = 'hidden';[m
+     }[m
+ [m
+     return () => {[m
+[31m-      document.body.style.overflow = "auto";[m
+[32m+[m[32m      document.removeEventListener('keydown', handleKeyDown);[m
+[32m+[m[32m      document.body.style.overflow = 'auto';[m
+     };[m
+[31m-  }, [isOpen]);[m
+[32m+[m[32m  }, [isOpen, onClose, isBrowser]);[m
+ [m
+[31m-  const downloadQRCode = async () => {[m
+[31m-    if (!value || !qrRef.current) return;[m
+[32m+[m[32m  const handleDownloadPNG = () => {[m
+[32m+[m[32m    if (!qrCodeDataUrl) return;[m
+     [m
+[31m-    try {[m
+[31m-      const canvas = await qrcode.toCanvas(value, {[m
+[31m-        width: 512,[m
+[31m-        margin: 2,[m
+[31m-      });[m
+[31m-      [m
+[31m-      const dataUrl = canvas.toDataURL("image/png");[m
+[31m-      const link = document.createElement("a");[m
+[31m-      link.download = `qrcode-${Date.now()}.png`;[m
+[31m-      link.href = dataUrl;[m
+[31m-      link.click();[m
+[31m-    } catch (err) {[m
+[31m-      console.error("Error downloading QR code", err);[m
+[31m-    }[m
+[32m+[m[32m    const link = document.createElement('a');[m
+[32m+[m[32m    link.href = qrCodeDataUrl;[m
+[32m+[m[32m    link.download = `qrcode-${value.replace(/[^a-zA-Z0-9]/g, '_')}.png`;[m
+[32m+[m[32m    link.click();[m
+   };[m
+ [m
+[31m-  if (!isOpen) return null;[m
+[32m+[m[32m  if (!isBrowser || !isOpen) return null;[m
+ [m
+   return ([m
+[31m-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">[m
+[31m-      <div className="relative bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-4 animate-fade-in">[m
+[31m-        {/* Header */}[m
+[31m-        <div className="flex justify-between items-center mb-4">[m
+[31m-          <h3 className="text-xl font-bold text-gray-800">{title}</h3>[m
+[31m-          <button [m
+[31m-            onClick={onClose}[m
+[31m-            className="text-gray-500 hover:text-gray-700 focus:outline-none"[m
+[31m-            aria-label="Close modal"[m
+[31m-          >[m
+[31m-            <svg [m
+[31m-              xmlns="http://www.w3.org/2000/svg" [m
+[31m-              className="h-6 w-6" [m
+[31m-              fill="none" [m
+[31m-              viewBox="0 0 24 24" [m
+[31m-              stroke="currentColor"[m
+[32m+[m[32m    <div className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-50 p-4">[m
+[32m+[m[32m      <div className="bg-white rounded-lg shadow-xl max-w-md w-full">[m
+[32m+[m[32m        <div className="p-4 border-b">[m
+[32m+[m[32m          <div className="flex justify-between items-center">[m
+[32m+[m[32m            <h2 className="text-xl font-semibold">{title}</h2>[m
+[32m+[m[32m            <button[m
+[32m+[m[32m              onClick={onClose}[m
+[32m+[m[32m              className="text-gray-500 hover:text-gray-700"[m
+[32m+[m[32m              aria-label="Close"[m
+             >[m
+[31m-              <path [m
+[31m-                strokeLinecap="round" [m
+[31m-                strokeLinejoin="round" [m
+[31m-                strokeWidth={2} [m
+[31m-                d="M6 18L18 6M6 6l12 12" [m
+[31m-              />[m
+[31m-            </svg>[m
+[31m-          </button>[m
+[32m+[m[32m              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">[m
+[32m+[m[32m                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />[m
+[32m+[m[32m              </svg>[m
+[32m+[m[32m            </button>[m
+[32m+[m[32m          </div>[m
+         </div>[m
+         [m
+[31m-        {/* QR Code */}[m
+[31m-        <div [m
+[31m-          className="flex justify-center items-center my-6 bg-gray-50 p-6 rounded-lg"[m
+[31m-          ref={qrRef}[m
+[31m-        >[m
+[31m-          {value ? ([m
+[31m-            <QRCode [m
+[31m-              value={value} [m
+[31m-              size={qrSize} [m
+[31m-              level="M"[m
+[31m-              className="rounded-md"[m
+[31m-            />[m
+[32m+[m[32m        <div className="p-6 flex justify-center" ref={qrCodeRef}>[m
+[32m+[m[32m          {qrCodeDataUrl ? ([m
+[32m+[m[32m            <img src={qrCodeDataUrl} alt="QR Code" width={256} height={256} />[m
+           ) : ([m
+[31m-            <div className="text-gray-400">No QR code value provided</div>[m
+[32m+[m[32m            <div className="h-64 w-64 flex items-center justify-center bg-gray-100">[m
+[32m+[m[32m              <span className="text-gray-500">Loading QR code...</span>[m
+[32m+[m[32m            </div>[m
+           )}[m
+         </div>[m
+         [m
+[31m-        {/* Footer with QR value and download button */}[m
+[31m-        <div className="mt-4">[m
+[31m-          <div className="text-sm text-gray-600 break-all mb-4">[m
+[31m-            {value}[m
+[32m+[m[32m        <div className="p-4 border-t">[m
+[32m+[m[32m          <div className="mb-2 text-sm text-gray-600 truncate">[m
+[32m+[m[32m            <span className="font-medium">URL:</span> {value}[m
+           </div>[m
+[31m-          [m
+[31m-          {downloadable && ([m
+[31m-            <button[m
+[31m-              onClick={downloadQRCode}[m
+[31m-              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline transition-colors"[m
+[31m-            >[m
+[31m-              Download QR Code[m
+[31m-            </button>[m
+[31m-          )}[m
+[32m+[m[32m          <button[m
+[32m+[m[32m            onClick={handleDownloadPNG}[m
+[32m+[m[32m            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 w-full"[m
+[32m+[m[32m            disabled={!qrCodeDataUrl}[m
+[32m+[m[32m          >[m
+[32m+[m[32m            Download QR Code[m
+[32m+[m[32m          </button>[m
+         </div>[m
+[31m-        [m
+[31m-        {/* Backdrop click to close */}[m
+[31m-        <div [m
+[31m-          className="fixed inset-0 z-[-1]" [m
+[31m-          onClick={onClose}[m
+[31m-          aria-hidden="true"[m
+[31m-        />[m
+       </div>[m
+     </div>[m
+   );[m

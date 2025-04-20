@@ -13,8 +13,8 @@
   NEXT_DISABLE_TYPE_CHECKS = "1"
 
 # Completely disable the Next.js plugin as we're using a static export
-[plugins]
-  package = []
+[[plugins]]
+  package = "netlify-plugin-nextjs"
 
 # Handle SPA routing in case SSR fails
 [[redirects]]

@@ -1,0 +1,19 @@
+[33mcommit be9b2f4817abe127fdbfcefc2175b8f310e5839b[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mtemp-revert[m[33m)[m
+Author: MUTUKU <yusuf.mutuku@gmail.com>
+Date:   Sat Apr 19 14:55:22 2025 +0300
+
+    Add Netlify deployment support with static export configuration
+
+.gitignore
+README.md
+netlify-deploy.bat
+netlify-deploy.sh
+netlify.toml
+next.config.js
+package.json
+public/_redirects
+public/build-success.html
+src/lib/firebase-admin.ts
+src/lib/firestore.ts
+src/lib/stripe.ts
+static-build.js
