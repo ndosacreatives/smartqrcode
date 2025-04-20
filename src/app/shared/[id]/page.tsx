@@ -246,10 +246,4 @@ export default function SharedFilePage({ params }: SharedFilePageProps) {
     </Box>
   );
 }
-    
-export const metadata = {
-  title: 'Redirecting...',
-};
-    
-export const dynamic = 'force-static';
   
