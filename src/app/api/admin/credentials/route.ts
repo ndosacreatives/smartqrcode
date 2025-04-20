@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyAuth, db } from '@/lib/firebase/admin';
 import * as crypto from 'crypto';
-import { getCredentials, saveCredentials } from '@/lib/credentials.server';
 
 // Encryption/decryption functions
 export function encryptData(data: string): { encryptedData: string; iv: string } {
@@ -146,7 +145,9 @@ export async function getAllDecryptedCredentials(): Promise<Record<string, strin
       for (const [key, value] of Object.entries(data.credentials)) {
         if (value && typeof value === 'object' && 'encrypted' in value && 'iv' in value) {
           try {
-            credentials[key] = decryptData(value.encrypted, value.iv);
+            const encrypted = value.encrypted as string;
+            const iv = value.iv as string;
+            credentials[key] = decryptData(encrypted, iv);
           } catch (err) {
             console.error(`Failed to decrypt credential ${key}:`, err);
           }
