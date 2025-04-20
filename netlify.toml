@@ -11,10 +11,6 @@
   NEXT_DISABLE_ESLINT = "1"
   NEXT_DISABLE_TYPE_CHECKS = "1"
 
-# Next.js plugin configuration
-[[plugins]]
-  package = "@netlify/plugin-nextjs"
-
 # Handle SPA routing in case SSR fails
 [[redirects]]
   from = "/*"

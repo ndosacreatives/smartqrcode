@@ -21,23 +21,6 @@ const nextConfig = {
   distDir: '.next',
   // Exclude specific routes from static build
   excludeDefaultMomentLocales: true,
-  // Exclude admin pages from static generation
-  exportPathMap: async function (defaultPathMap, { dev, dir, outDir, distDir, buildId }) {
-    // In development, don't apply any special handling
-    if (dev) {
-      return defaultPathMap;
-    }
-
-    // Filter out admin routes from static generation
-    const filteredPathMap = {};
-    for (const [path, page] of Object.entries(defaultPathMap)) {
-      if (!path.startsWith('/admin') && path !== '/admin-login') {
-        filteredPathMap[path] = page;
-      }
-    }
-
-    return filteredPathMap;
-  },
   env: {
     NEXT_PUBLIC_FIREBASE_API_KEY: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
     NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
