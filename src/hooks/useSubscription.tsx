@@ -20,7 +20,8 @@ export function useSubscription(): UseSubscriptionReturn {
 
   useEffect(() => {
     async function fetchUserData() {
-      if (!user) {
+      if (!user || !db) {
+        // If no user is logged in or db is not available, set default data
         setUserData(null);
         setLoading(false);
         return;

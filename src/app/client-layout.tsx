@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { SubscriptionProvider } from "@/context/SubscriptionProvider";
-import { FirebaseAuthProvider } from '@/context/FirebaseAuthContext'
+import { AuthProvider } from '@/context/FirebaseAuthContext'
 import { usePathname } from 'next/navigation';
 
 export default function ClientLayout({
@@ -23,17 +23,17 @@ export default function ClientLayout({
   // For admin pages, just wrap with providers but don't add any layout elements
   if (isAdminPage) {
     return (
-      <FirebaseAuthProvider>
+      <AuthProvider>
         <SubscriptionProvider>
           {children}
         </SubscriptionProvider>
-      </FirebaseAuthProvider>
+      </AuthProvider>
     );
   }
 
   // For regular pages, include header and footer
   return (
-    <FirebaseAuthProvider>
+    <AuthProvider>
       <SubscriptionProvider>
         {isMounted ? (
           <>
@@ -49,6 +49,6 @@ export default function ClientLayout({
           </div>
         )}
       </SubscriptionProvider>
-    </FirebaseAuthProvider>
+    </AuthProvider>
   )
 } 
