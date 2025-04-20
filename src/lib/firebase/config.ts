@@ -38,10 +38,10 @@ if (isBrowser) {
   }
 }
 
-// Export services
-export const auth = isBrowser ? getAuth() : null;
-export const db = isBrowser ? getFirestore() : null;
-export const storage = isBrowser ? getStorage() : null;
+// Export services - pass the firebaseApp to service initializers
+export const auth = isBrowser && firebaseApp ? getAuth(firebaseApp) : null;
+export const db = isBrowser && firebaseApp ? getFirestore(firebaseApp) : null;
+export const storage = isBrowser && firebaseApp ? getStorage(firebaseApp) : null;
 
 // In React components, always check if these are null before using
 export { firebaseApp as app }; 
