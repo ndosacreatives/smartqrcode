@@ -2,9 +2,13 @@
   "name": "smartqrcode",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=18.0.0 <22.0.0",
+    "npm": ">=8.0.0"
+  },
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "node scripts/check-node-version.js && node scripts/check-firebase-config.js && next build",
     "start": "next start",
     "lint": "next lint",
     "test:credentials": "ts-node --transpile-only --project tsconfig.scripts.json -r tsconfig-paths/register scripts/test-credentials.ts",

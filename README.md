@@ -207,3 +207,23 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 - [jsbarcode](https://github.com/lindell/JsBarcode) for barcode generation
 - [Tailwind CSS](https://tailwindcss.com/) for styling
 - [Next.js](https://nextjs.org/) for the framework
+
+## Build Requirements
+
+This project has specific requirements for successful builds:
+
+- **Node.js Version**: Requires Node.js v18.x - v21.x. Using versions outside this range may cause build failures.
+- **Firebase Configuration**: All required Firebase environment variables must be properly set.
+- **Environment Variables**: The application expects certain environment variables to be defined in `.env.local` or in your deployment environment.
+
+### Troubleshooting Build Failures
+
+If you encounter build errors, check the following:
+
+1. **Node.js Version**: Run `node -v` to verify you're using a compatible Node.js version (v18-v21 recommended).
+2. **Missing Environment Variables**: Make sure all required environment variables are defined.
+3. **Firebase Initialization**: The app uses Firebase services that require proper configuration.
+
+For production builds, make sure your deployment environment (Vercel, Netlify, etc.) is configured with:
+- The correct Node.js version (set in `.nvmrc`)
+- All required environment variables
