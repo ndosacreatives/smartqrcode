@@ -13,7 +13,13 @@ const excludedPaths = [
   'auth',
   'dashboard',
   'checkout',
-  'profile'
+  'profile',
+  'shared'
+];
+
+// Define dynamic routes that need special handling
+const dynamicRoutes = [
+  { route: 'shared/[id]', placeholder: 'placeholder' }
 ];
 
 // Helper function to remove a directory recursively
@@ -25,27 +31,6 @@ function removeDirectory(dirPath) {
     }
   } catch (err) {
     console.error(`Failed to remove ${dirPath}:`, err);
-  }
-}
-
-// Helper function to execute a command with proper error handling
-function runCommand(command) {
-  try {
-    console.log(`Running command: ${command}`);
-    execSync(command, { 
-      stdio: 'inherit',
-      env: {
-        ...process.env,
-        NEXT_DISABLE_ESLINT: '1',
-        NEXT_DISABLE_TYPE_CHECKS: '1',
-        NEXT_TELEMETRY_DISABLED: '1'
-      }
-    });
-    return true;
-  } catch (error) {
-    console.error(`Command failed: ${command}`);
-    console.error(error.message);
-    return false;
   }
 }
 
@@ -62,6 +47,26 @@ console.log('🧹 Cleaning previous build artifacts...');
 removeDirectory('.next');
 removeDirectory('out');
 
+// Create temporary generateStaticParams files for dynamic routes
+console.log('📝 Creating temporary generateStaticParams for dynamic routes...');
+dynamicRoutes.forEach(({ route }) => {
+  const parts = route.split('/');
+  const dirPath = path.join('src', 'app', ...parts);
+  const filePath = path.join(dirPath, 'generateStaticParams.js');
+  
+  // Only create if the directory exists and file doesn't
+  if (fs.existsSync(dirPath) && !fs.existsSync(filePath)) {
+    console.log(`Creating temporary generateStaticParams at ${filePath}`);
+    const content = `
+export async function generateStaticParams() {
+  // Return a placeholder value for static build
+  return [{ ${parts[parts.length-1].replace(/[\[\]]/g, '')}: "placeholder" }];
+}
+`;
+    fs.writeFileSync(filePath, content);
+  }
+});
+
 // Run the Next.js build
 console.log('🏗️ Building the Next.js application...');
 
@@ -76,6 +81,16 @@ if (!buildSuccess) {
   // Approach 2: Try the static export build script
   buildSuccess = runCommand('npm run build:static');
 }
+
+// Clean up temporary files
+console.log('🧹 Cleaning up temporary generateStaticParams files...');
+dynamicRoutes.forEach(({ route }) => {
+  const parts = route.split('/');
+  const filePath = path.join('src', 'app', ...parts, 'generateStaticParams.js');
+  if (fs.existsSync(filePath)) {
+    fs.unlinkSync(filePath);
+  }
+});
 
 if (!buildSuccess) {
   console.error('❌ All build approaches failed. Creating fallback page...');
@@ -167,4 +182,25 @@ function createPlaceholderPage(pagePath) {
   
   fs.writeFileSync(path.join(folderPath, 'index.html'), html);
   console.log(`📄 Created placeholder: ${folderPath}/index.html`);
+}
+
+// Helper function to execute a command with proper error handling
+function runCommand(command) {
+  try {
+    console.log(`Running command: ${command}`);
+    execSync(command, { 
+      stdio: 'inherit',
+      env: {
+        ...process.env,
+        NEXT_DISABLE_ESLINT: '1',
+        NEXT_DISABLE_TYPE_CHECKS: '1',
+        NEXT_TELEMETRY_DISABLED: '1'
+      }
+    });
+    return true;
+  } catch (error) {
+    console.error(`Command failed: ${command}`);
+    console.error(error.message);
+    return false;
+  }
 } 

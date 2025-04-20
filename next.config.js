@@ -19,6 +19,13 @@ const nextConfig = {
   // Configure which pages should be static vs. server-rendered
   output: 'export',
   distDir: '.next',
+  // Add a few additional route configurations here
+  generateStaticParams: {
+    // Ensure any dynamic routes are properly handled
+    '/shared/[id]': async () => {
+      return [{ id: 'placeholder' }];
+    }
+  },
   // Exclude specific routes from static build
   excludeDefaultMomentLocales: true,
   env: {
