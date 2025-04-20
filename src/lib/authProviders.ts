@@ -3,78 +3,94 @@ import {
   GithubAuthProvider, 
   FacebookAuthProvider, 
   TwitterAuthProvider, 
-  getAuth 
+  getAuth,
+  AuthProvider // Import base AuthProvider type
 } from "firebase/auth";
-import { app } from "./firebase/config";
+import { app, auth, isFirebaseAvailable } from "./firebase/config"; // Import isFirebaseAvailable and auth
 
-// Initialize Firebase Authentication
-export const auth = getAuth(app);
+// Initialize Firebase Authentication - ONLY if available
+// const auth = getAuth(app); // We already get auth from config.ts
 
-// Create Google Provider for direct export 
-export const googleProvider = new GoogleAuthProvider();
-googleProvider.addScope('https://www.googleapis.com/auth/userinfo.profile');
-googleProvider.addScope('https://www.googleapis.com/auth/userinfo.email');
-googleProvider.setCustomParameters({
-  prompt: 'select_account' // Force account selection even when one account is available
-});
+// --- Conditional Provider Initialization ---
 
-// Define available auth providers
-export const providers = {
-  google: googleProvider, // Use the googleProvider constant here
-  github: new GithubAuthProvider(),
-  facebook: new FacebookAuthProvider(),
-  twitter: new TwitterAuthProvider()
-};
+let googleProvider: AuthProvider | null = null;
+let githubProvider: AuthProvider | null = null;
+let facebookProvider: AuthProvider | null = null;
+let twitterProvider: AuthProvider | null = null;
 
-// Configure providers with additional scopes/parameters
-// GitHub provider configuration
-providers.github.addScope('read:user');
-providers.github.addScope('user:email');
+if (isFirebaseAvailable()) {
+  console.log("Firebase is available, initializing real auth providers.");
+  try {
+    googleProvider = new GoogleAuthProvider();
+    // Set custom parameters if needed
+    // googleProvider.setCustomParameters({ prompt: 'select_account' });
 
-// Facebook provider configuration
-providers.facebook.addScope('email');
-providers.facebook.addScope('public_profile');
+    githubProvider = new GithubAuthProvider();
+    // githubProvider.addScope('repo'); // Example scope
 
-// Helper function to get a provider by name
-export const getProvider = (providerName: string) => {
-  const provider = providers[providerName as keyof typeof providers];
-  if (!provider) {
-    throw new Error(`Auth provider ${providerName} not configured`);
+    facebookProvider = new FacebookAuthProvider();
+    // facebookProvider.addScope('email'); // Example scope
+
+    twitterProvider = new TwitterAuthProvider();
+    // Note: TwitterAuthProvider might have issues depending on Firebase/Twitter API changes.
+  } catch (error) {
+    console.error("Error initializing real auth providers:", error);
+    // Keep providers as null if initialization fails
   }
-  return provider;
-};
-
-// Available provider options for UI display
-export const authProviderOptions = [
-  { id: 'google', name: 'Google', icon: 'google' },
-  { id: 'github', name: 'GitHub', icon: 'github' },
-  { id: 'facebook', name: 'Facebook', icon: 'facebook' },
-  { id: 'twitter', name: 'Twitter', icon: 'twitter' }
-];
+} else {
+  console.warn("Firebase not available (likely build time), auth providers will be null/stubs.");
+  // We could create more detailed stubs if needed, but null might suffice
+  // depending on how AVAILABLE_PROVIDERS is used.
+}
 
 // Export available providers - ONLY include providers that are configured in Firebase console
 export const AVAILABLE_PROVIDERS = {
   google: {
     name: 'Google',
     enabled: true, // Set to true since you've enabled this in Firebase console
-    provider: googleProvider
+    provider: googleProvider // Use the conditionally initialized provider
   },
   // Explicitly set these to false since they're not configured
   twitter: {
     name: 'Twitter',
-    enabled: false
+    enabled: false,
+    provider: twitterProvider // Use the conditionally initialized provider
   },
   github: {
     name: 'GitHub',
-    enabled: false
+    enabled: false,
+    provider: githubProvider // Use the conditionally initialized provider
   },
   facebook: {
     name: 'Facebook',
-    enabled: false
+    enabled: false,
+    provider: facebookProvider // Use the conditionally initialized provider
   }
 };
 
-// Function to check if a provider is available
-export function isProviderEnabled(providerName: string): boolean {
-  return !!AVAILABLE_PROVIDERS[providerName as keyof typeof AVAILABLE_PROVIDERS]?.enabled;
-} 
+// Export the initialized providers directly if needed elsewhere, but prefer AVAILABLE_PROVIDERS
+export { googleProvider, githubProvider, facebookProvider, twitterProvider };
+
+// Define available auth providers
+export const AUTH_PROVIDERS = [
+  { id: 'google', name: 'Google', icon: 'google' },
+  { id: 'facebook', name: 'Facebook', icon: 'facebook' },
+  { id: 'github', name: 'GitHub', icon: 'github' },
+  { id: 'twitter', name: 'Twitter', icon: 'twitter' }
+];
+
+// Function to check if a provider is available and initialized
+export const isProviderEnabled = (providerId: string): boolean => {
+  const providerKey = providerId.toLowerCase() as keyof typeof AVAILABLE_PROVIDERS;
+  const providerInfo = AVAILABLE_PROVIDERS[providerKey];
+  // Ensure the provider key exists, it's marked as enabled, AND the provider object itself is not null
+  return providerInfo ? providerInfo.enabled && !!providerInfo.provider : false;
+};
+
+// Available provider options for UI display (this seems redundant with AUTH_PROVIDERS, consider removing one)
+export const authProviderOptions = [
+  { id: 'google', name: 'Google', icon: 'google' },
+  { id: 'github', name: 'GitHub', icon: 'github' },
+  { id: 'facebook', name: 'Facebook', icon: 'facebook' },
+  { id: 'twitter', name: 'Twitter', icon: 'twitter' }
+]; 
