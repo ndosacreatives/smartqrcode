@@ -109,17 +109,19 @@ if (canInitServices && app && typeof app.name === 'string') {
   }
 } else {
   console.log('Skipping Firebase service initialization during build');
-  // Create stub objects for export
-  auth = {} as Auth;
-  db = {} as Firestore;
-  storage = {} as FirebaseStorage;
+  // Create stub objects for export to prevent runtime errors during build
+  auth = { app: app } as Auth; // Provide minimal stub with app reference
+  db = { app: app } as Firestore;
+  storage = { app: app } as FirebaseStorage;
+  analytics = undefined; // Keep analytics as potentially undefined
 }
 
 // Create a function to get a RecaptchaVerifier instance when needed
 // This prevents trying to access DOM elements at module initialization
 export function getRecaptchaVerifier(elementId: string) {
-  if (!auth || !auth.app) {
-    console.error('Auth not initialized properly');
+  // Add extra check for app existence on auth object
+  if (!auth || !auth.app || typeof auth.app.name !== 'string') {
+    console.error('Auth not initialized properly for RecaptchaVerifier');
     return null;
   }
   
