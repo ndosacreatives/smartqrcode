@@ -4,13 +4,13 @@ import { initializeApp } from 'firebase/app';
 
 // Firebase config
 const firebaseConfig = {
-  apiKey: "AIzaSyAI8KpMU-NK2VG2yGC6BAQ_v0imrbHh79I",
-  authDomain: "smartqrdatabase-b5076.firebaseapp.com",
-  projectId: "smartqrdatabase-b5076",
-  storageBucket: "smartqrdatabase-b5076.appspot.com",
-  messagingSenderId: "340286816273",
-  appId: "1:340286816273:web:445441f6b1dceb23c2b1b0",
-  measurementId: "G-SQCWHRR10N"
+  apiKey: "",
+  authDomain: "",
+  projectId: "",
+  storageBucket: "",
+  messagingSenderId: "",
+  appId: "",
+  measurementId: ""
 };
 
 // Initialize Firebase
