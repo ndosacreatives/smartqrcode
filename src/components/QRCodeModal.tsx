@@ -8,9 +8,10 @@ interface QRCodeModalProps {
   onClose: () => void;
   value: string;
   title?: string;
+  downloadable?: boolean;
 }
 
-export default function QRCodeModal({ isOpen, onClose, value, title = 'QR Code' }: QRCodeModalProps) {
+export default function QRCodeModal({ isOpen, onClose, value, title = 'QR Code', downloadable }: QRCodeModalProps) {
   const qrCodeRef = useRef<HTMLDivElement>(null);
   const [isBrowser, setIsBrowser] = useState(false);
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>('');
