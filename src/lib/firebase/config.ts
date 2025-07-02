@@ -57,4 +57,6 @@ if (isBrowser) {
 export { auth, db, storage, firebaseApp as app };
 
 // Utility to check if Firebase initialized (used in several pages)
-export const isFirebaseAvailable: boolean = !!firebaseApp; 
+export function isFirebaseAvailable(): boolean {
+  return !!firebaseApp;
+} 

@@ -71,7 +71,7 @@ export class DatabaseService {
     const docSnap = await getDoc(docRef);
     
     if (docSnap.exists()) {
-      const data = { ...docSnap.data(), id: docId } as T;
+      const data = { ...docSnap.data(), id: docId } as unknown as T;
       
       // Update cache
       this.memoryCache[docPath] = {
