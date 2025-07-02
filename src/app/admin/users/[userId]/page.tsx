@@ -434,8 +434,4 @@ export default function UserDetailPage() {
       )}
     </div>
   );
-}
-
-export async function generateStaticParams() {
-  return [];
 } 

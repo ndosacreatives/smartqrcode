@@ -246,8 +246,4 @@ export default function SharedFilePage({ params }: SharedFilePageProps) {
     </Box>
   );
 }
-
-export async function generateStaticParams() {
-  return [];
-}
   
