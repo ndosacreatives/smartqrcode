@@ -13,9 +13,9 @@ let firebaseApp: FirebaseApp | undefined;
 const isBrowser = typeof window !== 'undefined';
 
 // Explicit typed null values for services
-let auth: Auth | null = null;
+let auth: Auth = {} as Auth;
 let db: Firestore = {} as Firestore;
-let storage: FirebaseStorage | null = null;
+let storage: FirebaseStorage = {} as FirebaseStorage;
 
 // Initialize Firebase only on the client side
 if (isBrowser) {
@@ -54,4 +54,7 @@ if (isBrowser) {
 }
 
 // Export the initialized services and app
-export { auth, db, storage, firebaseApp as app }; 
+export { auth, db, storage, firebaseApp as app };
+
+// Utility to check if Firebase initialized (used in several pages)
+export const isFirebaseAvailable: boolean = !!firebaseApp; 
