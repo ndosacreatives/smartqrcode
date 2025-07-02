@@ -1,3 +1,4 @@
+/// <reference types="node" />
 import crypto from 'crypto';
 
 // Get encryption key from environment variables

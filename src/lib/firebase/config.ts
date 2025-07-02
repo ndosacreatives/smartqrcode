@@ -14,7 +14,7 @@ const isBrowser = typeof window !== 'undefined';
 
 // Explicit typed null values for services
 let auth: Auth | null = null;
-let db: Firestore | null = null;
+let db: Firestore = {} as Firestore;
 let storage: FirebaseStorage | null = null;
 
 // Initialize Firebase only on the client side
