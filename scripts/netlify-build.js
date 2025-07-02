@@ -19,7 +19,8 @@ const excludedPaths = [
 
 // Define dynamic routes that need special handling
 const dynamicRoutes = [
-  { route: 'shared/[id]', placeholder: 'placeholder' }
+  { route: 'shared/[id]', placeholder: 'placeholder' },
+  { route: 'admin/users/[userId]', placeholder: 'placeholder' }
 ];
 
 // Helper function to remove a directory recursively
