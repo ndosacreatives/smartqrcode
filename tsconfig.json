@@ -43,6 +43,7 @@
     "node_modules",
     "tests",
     "temp_api_backup",
-    "temp_backup"
+    "temp_backup",
+    ".next"
   ]
 }
