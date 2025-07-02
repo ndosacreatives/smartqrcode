@@ -37,7 +37,9 @@ function checkEnvVar(varName, isRequired = true) {
 }
 
 // Check if we're in a build environment
-const isBuildEnv = process.env.NODE_ENV === 'production' || process.env.STATIC_EXPORT_ONLY === 'true';
+// Consider CI environments (e.g., Netlify) as build environments even if NODE_ENV isn't yet set to "production".
+const isCI = process.env.CI === 'true' || process.env.NETLIFY === 'true';
+const isBuildEnv = process.env.NODE_ENV === 'production' || process.env.STATIC_EXPORT_ONLY === 'true' || isCI;
 console.log(`Environment: ${isBuildEnv ? 'Production/Build' : 'Development'}`);
 
 // For build environment, we'll warn but continue if env vars are missing

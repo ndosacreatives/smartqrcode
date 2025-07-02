@@ -17,7 +17,7 @@ import {
   DocumentData,
   FieldValue
 } from 'firebase/firestore';
-import { db } from './firebase';
+import { db } from './firebase/config';
 import { UserData } from './firestore';
 
 // Collection name constants to avoid typos
