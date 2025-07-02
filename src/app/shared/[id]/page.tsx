@@ -1,4 +1,4 @@
-'use client';
+// converted to hybrid component: outer is server, inner remains client
 
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
@@ -12,7 +12,9 @@ interface SharedFilePageProps {
   };
 }
 
-export default function SharedFilePage({ params }: SharedFilePageProps) {
+function SharedFilePageClient({ params }: SharedFilePageProps) {
+  'use client';
+
   const { id } = params;
   const toast = useToast();
   
@@ -249,5 +251,9 @@ export default function SharedFilePage({ params }: SharedFilePageProps) {
 
 export async function generateStaticParams() {
   return [];
+}
+
+export default function SharedFilePage(props: SharedFilePageProps) {
+  return <SharedFilePageClient {...props} />;
 }
   

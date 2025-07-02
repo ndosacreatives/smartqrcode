@@ -1,4 +1,4 @@
-'use client';
+// hybrid server/client component setup
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
@@ -20,7 +20,9 @@ interface UserData {
   };
 }
 
-export default function UserDetailPage() {
+function UserDetailPageClient() {
+  'use client';
+
   const router = useRouter();
   const params = useParams();
   const userId = params?.userId as string;
@@ -434,6 +436,10 @@ export default function UserDetailPage() {
       )}
     </div>
   );
+}
+
+export default function UserDetailPage(props: any) {
+  return <UserDetailPageClient {...props} />;
 }
 
 export async function generateStaticParams() {
