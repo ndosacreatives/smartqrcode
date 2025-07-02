@@ -27,6 +27,8 @@ interface AuthContextType {
   updateUserProfile: (data: { displayName?: string, photoURL?: string }) => Promise<boolean>;
   signInWithGoogle: () => Promise<boolean>;
   clearError: () => void;
+  // Allow additional optional methods used elsewhere without strict typing errors
+  [key: string]: any;
 }
 
 // Create the auth context with default values
