@@ -1,6 +1,7 @@
 'use client';
 
+import React from 'react';
+
 export default function UserDetailClient() {
-  const React = await import('react');
-  return null;
+  return null; // Interactive logic will be implemented here.
 }
